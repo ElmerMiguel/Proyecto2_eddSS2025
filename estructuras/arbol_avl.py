@@ -1,4 +1,3 @@
-# archivo: estructuras/arbol_avl.py
 from objetos.libro import Libro
 
 class NodoAVL:

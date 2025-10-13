@@ -1,4 +1,3 @@
-# archivo: objetos/libro.py
 
 class Libro:
     """

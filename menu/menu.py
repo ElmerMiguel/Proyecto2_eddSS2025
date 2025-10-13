@@ -1,4 +1,3 @@
-# archivo: menu/menu.py
 from objetos.biblioteca_magica import BibliotecaMagica, Libro
 
 class Menu:

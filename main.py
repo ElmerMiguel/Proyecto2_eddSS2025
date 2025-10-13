@@ -1,4 +1,3 @@
-# archivo: main.py
 from menu.menu import Menu
 
 def main():

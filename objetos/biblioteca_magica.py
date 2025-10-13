@@ -1,4 +1,3 @@
-# archivo: objetos/biblioteca_magica.py
 
 from pathlib import Path
 import csv
@@ -17,7 +16,7 @@ from estructuras.arbol_bplus import ArbolBPlus
 class BibliotecaMagica:
     """
     Controlador principal de la biblioteca. Maneja las diferentes estructuras
-    (lista secuencial, AVL por títulos, B por fechas, BST por ISBN, B+ por géneros).
+    (lista secuencial, AVL por títulos, B por fechas, Hash por ISBN, B+ por géneros).
     """
 
     def __init__(self):
@@ -232,7 +231,7 @@ class BibliotecaMagica:
         self.arbol_generos.exportar_dot(archivo)
         self._generar_grafica_desde_dot(Path(archivo).with_suffix("").as_posix())
 
-    def exportar_bst(self, archivo: str) -> None:
+    def exportar_hash(self, archivo: str) -> None:
         self.tabla_isbn.exportar_dot(archivo)
         self._generar_grafica_desde_dot(Path(archivo).with_suffix("").as_posix())
 
@@ -242,7 +241,7 @@ class BibliotecaMagica:
         print("=============================================")
         self.exportar_avl("graficos_arboles/arbol_avl_titulos.dot")
         self.exportar_b("graficos_arboles/arbol_b_fechas.dot")
-        self.exportar_bst("graficos_arboles/tabla_hash_isbn.dot")
+        self.exportar_hash("graficos_arboles/tabla_hash_isbn.dot")
         self.exportar_bplus("graficos_arboles/arbol_bplus_generos.dot")
         print("=============================================")
         print("Archivos generados en carpeta 'graficos_arboles/'")
@@ -298,7 +297,7 @@ class BibliotecaMagica:
         end = time.perf_counter()
         return int((end - start) * 1_000_000)
 
-    def medir_busqueda_isbn_bst(self, isbn: str) -> int:
+    def medir_busqueda_isbn_hash(self, isbn: str) -> int:
         start = time.perf_counter()
         self.tabla_isbn.buscar(isbn)
         end = time.perf_counter()

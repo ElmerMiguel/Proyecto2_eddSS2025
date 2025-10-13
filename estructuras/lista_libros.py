@@ -1,4 +1,3 @@
-# archivo: estructuras/lista_libros.py
 
 from objetos.libro import Libro
 

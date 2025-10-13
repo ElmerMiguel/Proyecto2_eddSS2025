@@ -77,7 +77,7 @@ class TablaHash:
     def exportar_dot(self, archivo: str):
         
         with open(archivo, "w", encoding="utf-8") as out:
-            out.write("digraph BST {\n")
+            out.write("digraph hash {\n")
             out.write('    node [shape=box, style="filled", fillcolor="lightblue"];\n')
             for libro in self.raiz.values():
                 isbn_corto = libro.isbn[-4:] if len(libro.isbn) > 10 else libro.isbn

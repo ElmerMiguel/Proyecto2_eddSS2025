@@ -1,4 +1,3 @@
-# archivo: estructuras/arbol_b.py
 from objetos.libro import Libro
 from estructuras.lista_libros import ListaLibros
 
