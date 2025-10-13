@@ -10,7 +10,7 @@ from objetos.libro import Libro
 from estructuras.lista_libros import ListaLibros
 from estructuras.arbol_avl import ArbolAVL
 from estructuras.arbol_b import ArbolB
-from estructuras.arbol_bst import ArbolBST
+from estructuras.tabla_hash import TablaHash
 from estructuras.arbol_bplus import ArbolBPlus
 
 
@@ -26,7 +26,7 @@ class BibliotecaMagica:
         self.lista_secuencial = ListaLibros()
         self.arbol_titulos = ArbolAVL()
         self.arbol_fechas = ArbolB(3)      # asume constructor por defecto o ajustable internamente
-        self.tabla_isbn = ArbolBST()
+        self.tabla_isbn = TablaHash()
         self.arbol_generos = ArbolBPlus()
 
     # -----------------------
@@ -218,58 +218,70 @@ class BibliotecaMagica:
         print("Carga desde CSV completada.")
 
     # -----------------------
-    # Exportar y generar gráficos (DOT -> PNG)
-    # -----------------------
+# Exportar y generar gráficos (DOT -> PNG + SVG)
+# -----------------------
     def exportar_avl(self, archivo: str) -> None:
         self.arbol_titulos.exportar_dot(archivo)
-        self._generar_png_desde_dot(Path(archivo).with_suffix("").as_posix())
+        self._generar_grafica_desde_dot(Path(archivo).with_suffix("").as_posix())
 
     def exportar_b(self, archivo: str) -> None:
         self.arbol_fechas.exportar_dot(archivo)
-        self._generar_png_desde_dot(Path(archivo).with_suffix("").as_posix())
+        self._generar_grafica_desde_dot(Path(archivo).with_suffix("").as_posix())
 
     def exportar_bplus(self, archivo: str) -> None:
         self.arbol_generos.exportar_dot(archivo)
-        self._generar_png_desde_dot(Path(archivo).with_suffix("").as_posix())
+        self._generar_grafica_desde_dot(Path(archivo).with_suffix("").as_posix())
 
     def exportar_bst(self, archivo: str) -> None:
         self.tabla_isbn.exportar_dot(archivo)
-        self._generar_png_desde_dot(Path(archivo).with_suffix("").as_posix())
+        self._generar_grafica_desde_dot(Path(archivo).with_suffix("").as_posix())
 
     def exportar_todos_los_dots(self) -> None:
         Path("graficos_arboles").mkdir(parents=True, exist_ok=True)
-        print("Exportando todos los arboles a DOT y PNG...")
+        print("Exportando todos los arboles a DOT y PNG/SVG...")
         print("=============================================")
         self.exportar_avl("graficos_arboles/arbol_avl_titulos.dot")
         self.exportar_b("graficos_arboles/arbol_b_fechas.dot")
-        self.exportar_bst("graficos_arboles/arbol_bst_isbn.dot")
+        self.exportar_bst("graficos_arboles/tabla_hash_isbn.dot")
         self.exportar_bplus("graficos_arboles/arbol_bplus_generos.dot")
         print("=============================================")
         print("Archivos generados en carpeta 'graficos_arboles/'")
 
-    def _generar_png_desde_dot(self, archivo_base: str) -> None:
+    def _generar_grafica_desde_dot(self, archivo_base: str) -> None:
         """
-        Ejecuta Graphviz 'dot' para generar PNG desde .dot.
+        Ejecuta Graphviz 'dot' para generar PNG y SVG desde .dot.
         archivo_base: ruta sin extensión (ejemplo: 'graficos/arbol')
         """
         dot_file = Path(f"{archivo_base}.dot")
         png_file = Path(f"{archivo_base}.png")
+        svg_file = Path(f"{archivo_base}.svg")
 
         if not dot_file.exists():
             print(f"(X) Archivo DOT no encontrado: {dot_file}")
             return
 
-        comando = ["dot", "-Tpng", str(dot_file), "-o", str(png_file)]
+        # Generar PNG
         try:
-            subprocess.run(comando, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["dot", "-Tpng", str(dot_file), "-o", str(png_file)],
+                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if png_file.exists():
+                print(f"(√) PNG generado: {png_file}")
+            else:
+                print(f"(X) Error generando PNG para: {archivo_base}")
         except Exception:
             print(f"(X) Error generando PNG para: {archivo_base}")
-            return
 
-        if png_file.exists():
-            print(f"(√) PNG generado: {png_file}")
-        else:
-            print(f"(X) Error generando PNG para: {archivo_base}")
+        # Generar SVG
+        try:
+            subprocess.run(["dot", "-Tsvg", str(dot_file), "-o", str(svg_file)],
+                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if svg_file.exists():
+                print(f"(√) SVG generado: {svg_file}")
+            else:
+                print(f"(X) Error generando SVG para: {archivo_base}")
+        except Exception:
+            print(f"(X) Error generando SVG para: {archivo_base}")
+
 
     # -----------------------
     # Medición de tiempos (microsegundos)

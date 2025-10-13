@@ -71,7 +71,7 @@ class Menu:
             print("         BUSQUEDAS ESPECIALIZADAS")
             self.mostrar_separador()
             print("1. Buscar por titulo (Arbol AVL)")
-            print("2. Buscar por ISBN (Arbol BST)")
+            print("2. Buscar por ISBN (Tabla Hash)")
             print("3. Buscar por anio especifico (Arbol B)")
             print("4. Buscar por genero (Arbol B+)")
             print("5. Buscar por rango de fechas (Arbol B)")
