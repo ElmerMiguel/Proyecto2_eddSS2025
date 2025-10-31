@@ -40,7 +40,7 @@ notebook.pack(pady=10, padx=20, expand=True, fill="both")
 tab_dashboard = ttk.Frame(notebook, style='Sky.TFrame')
 tab_catalogo = ttk.Frame(notebook, style='Sky.TFrame')
 tab_red = ttk.Frame(notebook, style='Sky.TFrame')
-tab_busqueda_rutas = ttk.Frame(notebook, style='Sky.TFrame') # Nueva pestaña separada
+tab_busqueda_rutas = ttk.Frame(notebook, style='Sky.TFrame') 
 tab_simulacion = ttk.Frame(notebook, style='Sky.TFrame')
 tab_visualizacion = ttk.Frame(notebook, style='Sky.TFrame')
 tab_pruebas_carga = ttk.Frame(notebook, style='Sky.TFrame')
@@ -59,28 +59,39 @@ notebook.add(tab_pruebas_carga, text="⚙️ Pruebas de Rendimiento y Carga (CSV
 tab_dashboard.grid_columnconfigure((0, 1, 2), weight=1)
 tab_dashboard.grid_rowconfigure((0, 1), weight=1)
 
-# Función con CORRECCIÓN DE REDIRECCIÓN
-def create_info_card(parent, title, value_placeholder, row, col, color, command_index):
+# Función RE-MODIFICADA: Título GRANDE, Estructuras PEQUEÑAS
+def create_info_card(parent, emoji, text_title, value_placeholder, row, col, color, command_index):
     card = tk.Frame(parent, bg=DASH_CARD_BG, bd=2, relief=tk.RAISED, cursor="hand2")
     card.grid(row=row, column=col, sticky="nsew", padx=15, pady=15)
     card.grid_columnconfigure(0, weight=1)
     
-    # *** REDIRECCIÓN FUNCIONAL ***
+    # Redirección funcional
     card.bind("<Button-1>", lambda e, idx=command_index: notebook.select(idx))
     
-    # Uso de tk.Label para colores de fondo
-    tk.Label(card, text=title, font=('Arial', 14, 'bold'), bg=DASH_CARD_BG, fg=color).pack(pady=(15, 5))
-    tk.Label(card, text=value_placeholder, font=('Georgia', 28, 'bold'), bg=DASH_CARD_BG, fg=TITLE_COLOR).pack(pady=(5, 15))
-    tk.Label(card, text="Clic para Gestionar", font=('Arial', 10, 'italic'), bg=DASH_CARD_BG, fg=BUTTON_COLOR).pack(pady=(0, 5))
+    # 1. Etiqueta para el EMOJI GRANDE
+    tk.Label(card, text=emoji, font=('Arial', 38), bg=DASH_CARD_BG, fg=color).pack(pady=(15, 0))
+    
+    # 2. Etiqueta para el TÍTULO DE TEXTO GRANDE (Nombre del Módulo)
+    tk.Label(card, text=text_title, font=('Arial', 16, 'bold'), bg=DASH_CARD_BG, fg=TITLE_COLOR).pack(pady=(0, 5))
+    
+    # 3. Etiqueta para el valor PEQUEÑO (Estructuras de Datos)
+    tk.Label(card, text=value_placeholder, font=('Georgia', 11, 'bold'), bg=DASH_CARD_BG, fg=ACCENT_COLOR).pack(pady=(5, 10))
+    
+    # 4. Etiqueta de acción
+    tk.Label(card, text="Clic para Gestionar", font=('Arial', 9, 'italic'), bg=DASH_CARD_BG, fg=BUTTON_COLOR).pack(pady=(0, 5))
 
-# Creación de Tarjetas (Mapeo a los 6 índices de pestaña)
-# Índices: 1: Catálogo, 2: Red, 3: Búsqueda/Rutas, 4: Simulación, 5: Visualización, 6: Pruebas/Carga
-create_info_card(tab_dashboard, "📚 Catálogo (CRUD)", "AVL/B+/Hash", 0, 0, ACCENT_COLOR, command_index=1)
-create_info_card(tab_dashboard, "🏛️ Red de Bibliotecas", "Grafo Ponderado", 0, 1, ACCENT_COLOR, command_index=2)
-create_info_card(tab_dashboard, "🔍 Rutas y Búsqueda Avanzada", "Dijkstra/Hash/B", 0, 2, ACCENT_COLOR, command_index=3)
-create_info_card(tab_dashboard, "📦 Simulación de Flujo", "Colas FIFO (3 Tipos)", 1, 0, ACCENT_COLOR, command_index=4)
-create_info_card(tab_dashboard, "📊 Visualización Estructuras", "Árboles/Hash/Pilas", 1, 1, ACCENT_COLOR, command_index=5)
-create_info_card(tab_dashboard, "⚙️ Rendimiento y CSV", "5 Sorts / 3 Búsquedas", 1, 2, ACCENT_COLOR, command_index=6)
+# Creación de Tarjetas con la nueva jerarquía de texto
+# Argumentos: (parent, emoji, text_title_GRANDE, value_placeholder_PEQUEÑO, row, col, color, command_index)
+
+# Fila 0
+create_info_card(tab_dashboard, "📘", "Catálogo y Libro (CRUD)", "Estructuras: AVL / B+ / Hash / Listas", 0, 0, ACCENT_COLOR, command_index=1)
+create_info_card(tab_dashboard, "🏛️", "Red de Bibliotecas", "Estructuras: Grafo Ponderado (Nodos/Aristas)", 0, 1, ACCENT_COLOR, command_index=2)
+create_info_card(tab_dashboard, "🗺️", "Rutas y Búsqueda", "Algoritmos: Dijkstra / Búsqueda en Árboles", 0, 2, ACCENT_COLOR, command_index=3)
+
+# Fila 1
+create_info_card(tab_dashboard, "⏳", "Simulación de Flujo", "Algoritmos: Colas FIFO (Ingreso, Traspaso, Salida)", 1, 0, ACCENT_COLOR, command_index=4)
+create_info_card(tab_dashboard, "🌳", "Visualización Estructuras", "Representación: Árboles / Hash / Pilas", 1, 1, ACCENT_COLOR, command_index=5)
+create_info_card(tab_dashboard, "📈", "Pruebas y Carga CSV", "Comparación: 5 Sorts / 3 Búsquedas (Big O)", 1, 2, ACCENT_COLOR, command_index=6)
 
 
 # --- 5. PESTAÑAS DETALLADAS ---
