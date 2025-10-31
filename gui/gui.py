@@ -4,9 +4,9 @@ from tkinter import ttk, filedialog, messagebox
 # Colores mágicos
 BG_COLOR = "#e6f0ff"        # Fondo principal (Azul claro/celeste)
 TITLE_COLOR = "#2a2a72"     # Color del título (Azul oscuro/índigo)
-BUTTON_COLOR = "#4a90e2"    # Color del botón (Azul brillante)
+BUTTON_COLOR = "#4a90e2"    # Color del botón (Azul brillante) <--- USADO PARA PESTAÑAS NO ACTIVAS
 FILTER_BG = "#d9e4f5"       # Fondo de los filtros (Azul muy claro - para marcos/fondo)
-ACCENT_COLOR = "#1e6bbd"    # Color de acento (Azul profundo)
+ACCENT_COLOR = "#1e6bbd"    # Color de acento (Azul profundo) <--- USADO PARA PESTAÑA ACTIVA
 DASH_CARD_BG = "#ffffff"    # Fondo de tarjetas y Canvas (Blanco)
 
 # --- 1. CONFIGURACIÓN INICIAL Y ESTILOS ---
@@ -21,9 +21,37 @@ style.theme_use("clam")
 
 # Estilos ttk
 style.configure('TNotebook', background=BG_COLOR, borderwidth=0)
-style.configure('TNotebook.Tab', font=('Arial', 11, 'bold'), foreground=TITLE_COLOR, padding=[15, 5])
-style.map('TNotebook.Tab', background=[('selected', FILTER_BG)], foreground=[('selected', ACCENT_COLOR)])
+
+# 🌟 ADAPTACIÓN CLAVE DE COLORES DE PESTAÑAS (TNotebook.Tab) 🌟
+
+# Pestaña NO seleccionada: Fondo = BUTTON_COLOR (Azul brillante), Texto = Blanco
+style.configure('TNotebook.Tab', 
+                font=('Arial', 11, 'bold'), 
+                foreground='white',
+                background=BUTTON_COLOR,
+                bordercolor=BG_COLOR,
+                padding=[15, 5])
+
+# Pestaña SELECCIONADA y HOVER:
+# La solución al error es combinar los estados 'selected' y 'active' en la misma propiedad 'background'
+style.map('TNotebook.Tab', 
+          # Corregido: Propiedad 'background' única con ambos estados
+          background=[('selected', ACCENT_COLOR), ('active', BUTTON_COLOR)],
+          foreground=[('selected', 'white')],
+          bordercolor=[('selected', FILTER_BG)])
+
+# --------------------------------------------------------------------------
+
+# Configurar el fondo de los Frames principales de las pestañas
 style.configure('Sky.TFrame', background=FILTER_BG)
+
+# Configurar el fondo de las etiquetas (TLabel), Radiobuttons y Checkbuttons
+style.configure('TLabel', background=FILTER_BG)
+style.configure('TCheckbutton', background=FILTER_BG, foreground=TITLE_COLOR)
+style.configure('TRadiobutton', background=FILTER_BG, foreground=TITLE_COLOR)
+
+
+# Estilo de botones
 style.configure('TButton', font=('Arial', 10, 'bold'), foreground='white', background=BUTTON_COLOR, padding=6, relief='flat')
 style.map('TButton', background=[('active', ACCENT_COLOR)])
 
@@ -109,6 +137,7 @@ tk.Label(crud_frame, text="✏️ REGISTRO DE LIBRO", font=('Arial', 14, 'bold')
 # Campos de Atributos del Libro (Requisito: Título, Autor, ISBN, Año, Género, Estado)
 atributos = [("Título", 40), ("Autor", 40), ("ISBN", 20), ("Año de publicación", 10), ("Género", 20)]
 for label_text, width in atributos:
+    # Usar widget tk.Label para asegurar que el fondo sea FILTER_BG (ya que configuramos style.configure('TLabel', background=FILTER_BG))
     tk.Label(crud_frame, text=f"{label_text}:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
     ttk.Entry(crud_frame, width=width).pack(fill='x')
 
@@ -139,6 +168,7 @@ ttk.Button(listado_frame, text="Listar Libros por Título").pack(fill='x', pady=
 
 
 # Tabla de Resultados
+# ESTA ETIQUETA AHORA TIENE EL FONDO CORRECTO GRACIAS A style.configure('TLabel', background=FILTER_BG)
 tk.Label(listado_frame, text="CATÁLOGO COMPLETO:", font=('Arial', 12, 'bold'), bg=FILTER_BG).pack(anchor='w', pady=(10, 0))
 catalog_tree = ttk.Treeview(listado_frame, columns=("Título", "Autor", "ISBN", "Estado"), show='headings')
 catalog_tree.heading("Título", text="Título")
@@ -177,6 +207,7 @@ tk.Label(config_frame_red, text="Peso (Tiempo/Costo):", bg=FILTER_BG).pack(ancho
 ttk.Entry(config_frame_red).pack(fill='x')
 
 bidirectional_var = tk.BooleanVar()
+# ESTE CHECKBUTTON AHORA TIENE EL FONDO CORRECTO GRACIAS A style.configure('TCheckbutton', background=FILTER_BG)
 ttk.Checkbutton(config_frame_red, text="Conexión Bidireccional", variable=bidirectional_var).pack(anchor='w', pady=5)
 ttk.Button(config_frame_red, text="🔗 Crear / Actualizar Conexión").pack(pady=10, fill='x')
 
@@ -245,6 +276,7 @@ tk.Label(rutas_frame, text="Criterio de Optimización:", bg=FILTER_BG).pack(anch
 criterio_var = tk.StringVar(value="Tiempo Mínimo")
 criterio_options = ttk.Frame(rutas_frame, style='Sky.TFrame')
 criterio_options.pack(fill='x')
+# RADIOBUTTONS AHORA TIENEN EL FONDO CORRECTO
 ttk.Radiobutton(criterio_options, text="Tiempo Mínimo", variable=criterio_var, value="Tiempo Mínimo").pack(side='left', padx=5)
 ttk.Radiobutton(criterio_options, text="Costo Mínimo", variable=criterio_var, value="Costo Mínimo").pack(side='left', padx=5)
 
