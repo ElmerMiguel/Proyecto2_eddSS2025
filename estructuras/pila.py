@@ -25,6 +25,14 @@ class Pila:
         self.tamanio -= 1
         return libro
 
+    def push(self, libro):
+        """Alias de apilar() para compatibilidad."""
+        self.apilar(libro)
+    
+    def pop(self):
+        """Alias de desapilar() para compatibilidad."""
+        return self.desapilar()
+
     def esta_vacia(self) -> bool:
         return self.tope is None
 

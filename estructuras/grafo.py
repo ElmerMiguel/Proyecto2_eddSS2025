@@ -11,9 +11,19 @@ class Grafo:
     def __init__(self):
         self.nodos: Dict[str, List[Arista]] = {}
 
-    def agregar_nodo(self, nombre: str):
+    def agregar_nodo(self, nombre: str, etiqueta: str = None):
+        """
+        Agrega un nodo al grafo.
+        nombre: ID único del nodo
+        etiqueta: Nombre legible para visualización (opcional)
+        """
         if nombre not in self.nodos:
             self.nodos[nombre] = []
+            # Guardar etiqueta para exportación DOT
+            if etiqueta and not hasattr(self, 'etiquetas'):
+                self.etiquetas = {}
+            if etiqueta:
+                self.etiquetas[nombre] = etiqueta
 
     def agregar_arista(self, origen: str, destino: str, tiempo: int, costo: float, bidireccional: bool = True):
         self.agregar_nodo(origen)

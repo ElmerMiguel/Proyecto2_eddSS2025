@@ -230,3 +230,24 @@ class ArbolBPlus:
                 child_id = id_counter[0]
                 self._exportar_dot_rec(hijo, out, id_counter)
                 out.write(f"\"n{nodo_id}\":f{i} -> \"n{child_id}\";\n")
+        # -------------------------------------------------
+    # Obtener géneros únicos (para GUI)
+    # -------------------------------------------------
+    def obtener_generos(self) -> List[str]:
+        """Retorna lista de géneros únicos ordenados alfabéticamente."""
+        if not self.raiz:
+            return []
+        
+        generos = set()
+        actual = self.raiz
+        
+        # Ir a la primera hoja
+        while not actual.hoja:
+            actual = actual.hijos[0]
+        
+        # Recorrer todas las hojas
+        while actual:
+            generos.update(actual.claves)
+            actual = actual.siguiente
+        
+        return sorted(list(generos))

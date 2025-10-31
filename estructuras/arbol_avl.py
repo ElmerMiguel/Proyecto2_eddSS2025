@@ -142,6 +142,13 @@ class ArbolAVL:
 
     def mostrar_inorder(self):
         self._inorder(self.raiz)
+    
+    def inorder(self):
+        """Retorna lista de libros ordenados por título (recorrido in-order)."""
+        libros = []
+        self._recopilar_libros(self.raiz, libros)
+        return libros
+    
 
     # --- Exportar DOT ---
     def _exportar_dot_rec(self, nodo, out):

@@ -1,0 +1,6 @@
+digraph RedBibliotecas {
+    rankdir=LR;
+    node [shape=circle, style=filled, fillcolor=lightblue];
+    edge [fontsize=10];
+
+}

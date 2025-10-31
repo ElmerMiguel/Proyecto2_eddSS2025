@@ -43,14 +43,16 @@ class ListaLibros:
                     anterior.siguiente = actual.siguiente
                 else:
                     self.cabeza = actual.siguiente
-                    
-                self.tamanio -= 1  
                 
+                self.tamanio -= 1
+                return True 
+            
             anterior = actual
             actual = actual.siguiente
 
         return False
-
+    
+    
     def buscar_por_titulo(self, titulo: str) -> Libro | None:
         """
         Busca un libro por su título.

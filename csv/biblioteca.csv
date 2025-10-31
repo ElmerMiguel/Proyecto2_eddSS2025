@@ -1,0 +1,55 @@
+"ID","Nombre","Ubicación","t_ingreso","t_traspaso","dispatchInterval"
+"A-101","Almacén Principal","Madrid",28800,45000,3600
+"B-205","Centro de Distribución","Barcelona",32400,50400,1800
+"C-309","Plataforma Logística Sur","Valencia",39600,60300,2700
+"D-412","Depósito Temporal","Sevilla",27900,40500,5400
+"E-501","Almacén Norte","Bilbao",30000,46800,3600
+"F-602","Centro de Logística Este","Zaragoza",31500,48600,2700
+"G-703","Depósito Oeste","Málaga",33000,50400,1800
+"H-804","Plataforma Central","Granada",34500,52200,3600
+"I-905","Almacén Costa","Alicante",36000,54000,2700
+"J-106","Centro de Distribución Sur","Murcia",37500,55800,1800
+"K-207","Depósito Norte","Valladolid",39000,57600,3600
+"L-308","Plataforma Logística Oeste","Santander",40500,59400,2700
+"M-409","Almacén Central","Toledo",42000,61200,1800
+"N-510","Centro Logístico Este","Salamanca",43500,63000,3600
+"O-611","Depósito Temporal Sur","Córdoba",45000,64800,2700
+"P-712","Plataforma Norte","Pamplona",46500,66600,1800
+"Q-813","Almacén Sur","Huelva",48000,68400,3600
+"R-914","Centro de Distribución Oeste","Lugo",49500,70200,2700
+"S-1015","Depósito Este","Ourense",51000,72000,1800
+"T-1116","Plataforma Logística Norte","León",52500,73800,3600
+"U-1217","Almacén Este","Burgos",54000,75600,2700
+"V-1318","Centro de Distribución Central","Castellón",55500,77400,1800
+"W-1419","Depósito Sur","Jaén",57000,79200,3600
+"X-1520","Plataforma Oeste","Almería",58500,81000,2700
+"Y-1621","Almacén Temporal","Segovia",60000,82800,1800
+"Z-1722","Centro Logístico Norte","Huesca",61500,84600,3600
+"A-1823","Depósito Central","Tarragona",63000,86400,2700
+"B-1924","Plataforma Sur","Girona",64500,88200,1800
+"C-2025","Almacén Oeste","Cáceres",66000,90000,3600
+"D-2126","Centro de Distribución Norte","Zamora",67500,91800,2700
+"E-2227","Depósito Este","Albacete",69000,93600,1800
+"F-2328","Plataforma Central Sur","León",70500,95400,3600
+"G-2429","Almacén Norte Este","Vitoria",72000,97200,2700
+"H-2530","Centro Logístico Sur","Oviedo",73500,99000,1800
+"I-2631","Depósito Oeste Central","Santander",75000,100800,3600
+"J-2732","Plataforma Temporal","Madrid",76500,102600,2700
+"K-2833","Almacén Este Central","Sevilla",78000,104400,1800
+"L-2934","Centro de Distribución Temporal","Barcelona",79500,106200,3600
+"M-3035","Depósito Norte Oeste","Bilbao",81000,108000,2700
+"N-3136","Plataforma Logística Este","Zaragoza",82500,109800,1800
+"O-3237","Almacén Sur Central","Málaga",84000,111600,3600
+"P-3338","Centro de Distribución Este","Granada",85500,113400,2700
+"Q-3439","Depósito Temporal Norte","Alicante",87000,115200,1800
+"R-3540","Plataforma Central Oeste","Murcia",88500,117000,3600
+"S-3641","Almacén Oeste","Valladolid",90000,118800,2700
+"T-3742","Centro de Distribución Sur","Santander",91500,120600,1800
+"U-3843","Depósito Este Central","Toledo",93000,122400,3600
+"V-3944","Plataforma Norte Sur","Salamanca",94500,124200,2700
+"W-4045","Almacén Temporal Norte","Córdoba",96000,126000,1800
+"X-4146","Centro Logístico Oeste","Pamplona",97500,127800,3600
+"Y-4247","Depósito Sur Central","Huelva",99000,129600,2700
+"Z-4348","Plataforma Este","Lugo",100500,131400,1800
+"A-4449","Almacén Norte Central","Ourense",102000,133200,3600
+"B-4550","Centro de Distribución T

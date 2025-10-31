@@ -55,8 +55,9 @@ class RedBibliotecas:
                     )
                     
                     self.bibliotecas[id_bib] = biblioteca
-                    self.inventario_global.agregar_biblioteca(id_bib)  # ← Línea agregada
-                    self.grafo.agregar_nodo(id_bib)
+                    self.inventario_global.agregar_biblioteca(id_bib)
+                    # ✅ CORRECCIÓN 1: Se agrega el parámetro 'nombre' a agregar_nodo()
+                    self.grafo.agregar_nodo(id_bib, nombre) 
                 
                     contador += 1
             
@@ -142,6 +143,30 @@ class RedBibliotecas:
         self.transferencias_activas.append(transferencia)
         
         return True
+
+    # ✅ CORRECCIÓN 2: Método solicitar_transferencia() agregado
+    def solicitar_transferencia(self, libro: Libro, id_origen: str, id_destino: str, criterio: str = "tiempo") -> bool:
+        """
+        Solicita una transferencia usando un objeto Libro directamente.
+        (Usado cuando se carga desde CSV)
+        """
+        if id_origen not in self.bibliotecas:
+            print(f"Error: Biblioteca origen '{id_origen}' no existe")
+            return False
+        
+        if id_destino not in self.bibliotecas:
+            print(f"Error: Biblioteca destino '{id_destino}' no existe")
+            return False
+        
+        # Agregar libro al catálogo de origen si no existe
+        biblioteca_origen = self.bibliotecas[id_origen]
+        libro_existente = biblioteca_origen.obtener_libro_por_isbn(libro.isbn)
+        
+        if not libro_existente:
+            biblioteca_origen.agregar_libro_catalogo(libro)
+        
+        # Iniciar transferencia usando el método existente
+        return self.iniciar_transferencia(libro.isbn, id_origen, id_destino, criterio)
 
     def simular_tick(self) -> None:
         """
@@ -262,6 +287,25 @@ class RedBibliotecas:
         print(f"Transferencias activas:         {stats['transferencias_activas']}")
         print(f"Transferencias completadas:     {stats['transferencias_completadas']}")
         print("=" * 80)
+
+    # ✅ CORRECCIÓN 3: Método agregar_biblioteca() agregado
+    def agregar_biblioteca(self, id_bib: str, nombre: str, ubicacion: str, 
+                           t_ingreso: int, t_traspaso: int, intervalo: int) -> None:
+        """Agrega una biblioteca manualmente (desde GUI)."""
+        biblioteca = Biblioteca(
+            id_biblioteca=id_bib,
+            nombre=nombre,
+            ubicacion=ubicacion,
+            tiempo_ingreso=t_ingreso,
+            tiempo_traspaso=t_traspaso,
+            intervalo_despacho=intervalo
+        )
+        
+        self.bibliotecas[id_bib] = biblioteca
+        self.inventario_global.agregar_biblioteca(id_bib)
+        self.grafo.agregar_nodo(id_bib, nombre)  # ✅ Con nombre
+        
+        print(f"✅ Biblioteca '{nombre}' agregada con ID '{id_bib}'")
         
     def actualizar_inventario_libro(self, id_biblioteca: str, genero: str, incremento: int = 1):
         self.inventario_global.incrementar(id_biblioteca, genero, incremento)
