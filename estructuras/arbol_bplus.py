@@ -1,14 +1,5 @@
 from typing import List, Dict, Optional
-from dataclasses import dataclass
-import os
-
-@dataclass
-class Libro:
-    titulo: str
-    isbn: str
-    genero: str
-    anio: int
-    autor: str
+from objetos.libro import Libro
 
 
 class NodoBPlus:

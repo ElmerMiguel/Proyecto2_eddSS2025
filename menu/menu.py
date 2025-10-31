@@ -1,8 +1,8 @@
-from objetos.biblioteca_magica import BibliotecaMagica, Libro
+from objetos.controlador_catalogo import ControladorCatalogo, Libro
 
 class Menu:
     def __init__(self):
-        self.bm = BibliotecaMagica()
+        self.bm = ControladorCatalogo()
 
     def ejecutar(self):
         while True:
