@@ -21,11 +21,12 @@ class RedBibliotecas:
         self.transferencias_completadas: List[Transferencia] = []
         self.inventario_global = Inventario()
 
+    
+    
     def cargar_bibliotecas_csv(self, ruta_archivo: str) -> int:
         """
         Carga bibliotecas desde CSV.
-        Formato esperado: ID,Nombre,Ubicacion,t_ingreso,t_traspaso,i_despacho
-        Retorna el numero de bibliotecas cargadas.
+        Formato: ID,Nombre,Ubicación,t_ingreso,t_traspaso,dispatchInterval
         """
         if not os.path.exists(ruta_archivo):
             print(f"Error: No se encontro el archivo {ruta_archivo}")
@@ -35,15 +36,25 @@ class RedBibliotecas:
         
         try:
             with open(ruta_archivo, 'r', encoding='utf-8') as archivo:
-                lector = csv.DictReader(archivo)
+                reader = csv.reader(archivo)
+                try:
+                    encabezado = next(reader)  # ✅ SALTAR ENCABEZADO
+                    print(f"Encabezado bibliotecas: {encabezado}")
+                except StopIteration:
+                    print("Archivo vacío o sin encabezado.")
+                    return 0
                 
-                for fila in lector:
-                    id_bib = fila['ID'].strip()
-                    nombre = fila['Nombre'].strip()
-                    ubicacion = fila['Ubicacion'].strip()
-                    t_ingreso = int(fila['t_ingreso'])
-                    t_traspaso = int(fila['t_traspaso'])
-                    i_despacho = int(fila['i_despacho'])
+                for fila in reader:
+                    if not fila or len(fila) < 6:
+                        continue
+                        
+                    # ✅ USAR ÍNDICES DIRECTOS
+                    id_bib = fila[0].strip().strip('"')
+                    nombre = fila[1].strip().strip('"')
+                    ubicacion = fila[2].strip().strip('"')
+                    t_ingreso = int(fila[3].strip().strip('"'))
+                    t_traspaso = int(fila[4].strip().strip('"'))
+                    i_despacho = int(fila[5].strip().strip('"'))  # ✅ dispatchInterval
                     
                     biblioteca = Biblioteca(
                         id_biblioteca=id_bib,
@@ -56,24 +67,21 @@ class RedBibliotecas:
                     
                     self.bibliotecas[id_bib] = biblioteca
                     self.inventario_global.agregar_biblioteca(id_bib)
-                    # ✅ CORRECCIÓN 1: Se agrega el parámetro 'nombre' a agregar_nodo()
-                    self.grafo.agregar_nodo(id_bib, nombre) 
-                
+                    self.grafo.agregar_nodo(id_bib, nombre)
+                    
+                    print(f"✅ Biblioteca cargada: {nombre} ({id_bib})")
                     contador += 1
             
-            print(f"Se cargaron {contador} bibliotecas desde {ruta_archivo}")
             return contador
         
         except Exception as e:
             print(f"Error al cargar bibliotecas: {e}")
-            return contador
-
+            return 0
 
     def cargar_conexiones_csv(self, ruta_archivo: str) -> int:
         """
-        Carga conexiones (aristas) desde CSV.
-        Formato esperado: Origen,Destino,Tiempo,Costo,Bidireccional
-        Retorna el numero de conexiones cargadas.
+        Carga conexiones desde CSV.
+        Formato: OrigenID,DestinoID,Tiempo,Costo
         """
         if not os.path.exists(ruta_archivo):
             print(f"Error: No se encontro el archivo {ruta_archivo}")
@@ -83,28 +91,56 @@ class RedBibliotecas:
         
         try:
             with open(ruta_archivo, 'r', encoding='utf-8') as archivo:
-                lector = csv.DictReader(archivo)
+                reader = csv.reader(archivo)
+                try:
+                    encabezado = next(reader)  # ✅ SALTAR ENCABEZADO
+                    print(f"Encabezado conexiones: {encabezado}")
+                except StopIteration:
+                    print("Archivo vacío o sin encabezado.")
+                    return 0
                 
-                for fila in lector:
-                    origen = fila['Origen'].strip()
-                    destino = fila['Destino'].strip()
-                    tiempo = int(fila['Tiempo'])
-                    costo = float(fila['Costo'])
-                    bidireccional = fila['Bidireccional'].strip().lower() == 'true'
+                for fila in reader:
+                    if not fila or len(fila) < 4:
+                        continue
+                        
+                    # ✅ USAR ÍNDICES DIRECTOS
+                    origen = fila[0].strip().strip('"')      # OrigenID
+                    destino = fila[1].strip().strip('"')     # DestinoID
+                    tiempo = int(fila[2].strip().strip('"'))  # Tiempo
+                    costo = float(fila[3].strip().strip('"')) # Costo
                     
                     if origen not in self.bibliotecas or destino not in self.bibliotecas:
-                        print(f"Advertencia: Conexion invalida {origen}->{destino}")
+                        print(f"⚠️ Conexión inválida: {origen} -> {destino} (bibliotecas no existen)")
                         continue
                     
-                    self.grafo.agregar_arista(origen, destino, tiempo, costo, bidireccional)
+                    # ✅ SIEMPRE BIDIRECCIONAL (tu CSV no tiene esa columna)
+                    self.grafo.agregar_arista(origen, destino, tiempo, costo, bidireccional=True)
+                    
+                    print(f"✅ Conexión cargada: {origen} -> {destino} ({tiempo}s, ${costo})")
                     contador += 1
             
-            print(f"Se cargaron {contador} conexiones desde {ruta_archivo}")
             return contador
-            
+        
         except Exception as e:
             print(f"Error al cargar conexiones: {e}")
-            return contador
+            return 0
+
+    # ✅ AGREGAR MÉTODO PARA LIBROS QUE USE EL CONTROLADOR
+    def cargar_libros_csv(self, ruta_archivo: str) -> int:
+        """
+        Carga libros desde CSV usando el ControladorCatalogo.
+        """
+        if not self.bibliotecas:
+            print("⚠️ No hay bibliotecas cargadas. Carga bibliotecas primero.")
+            return 0
+        
+        # ✅ USAR LA PRIMERA BIBLIOTECA DISPONIBLE
+        primera_bib = next(iter(self.bibliotecas.values()))
+        return primera_bib.catalogo_local.cargar_desde_csv(ruta_archivo, "General", self)
+        
+    
+    
+    
 
     def iniciar_transferencia(self, isbn: str, origen: str, destino: str, prioridad: str = "tiempo") -> bool:
         """

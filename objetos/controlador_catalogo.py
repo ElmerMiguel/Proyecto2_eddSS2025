@@ -214,7 +214,6 @@ class ControladorCatalogo:
     def cargar_desde_csv(self, ruta_archivo: str, nombre_coleccion: str = "General", red_bibliotecas=None) -> int:
         """
         Carga libros desde CSV con 9 campos según enunciado.
-        Si red_bibliotecas está presente, programa transferencias automáticamente.
         """
         ruta = Path(ruta_archivo)
         if not ruta.exists():
@@ -222,79 +221,74 @@ class ControladorCatalogo:
             return 0
 
         contador = 0
-        transferencias_programadas = []
 
-        with open(ruta_archivo, "r", encoding="utf-8") as archivo:
-            lector = csv.DictReader(archivo)
-            
-            for fila in lector:
+        try:
+            with open(ruta_archivo, "r", encoding="utf-8") as archivo:
+                reader = csv.reader(archivo)
                 try:
-                    # Leer los 9 campos del enunciado
-                    titulo = fila.get("Titulo", "").strip()
-                    isbn = fila.get("ISBN", "").strip()
-                    genero = fila.get("Genero", "").strip()
-                    anio = int(fila.get("Año", 0))
-                    autor = fila.get("Autor", "").strip()
-                    estado = fila.get("Estado", "disponible").strip()
-                    id_origen = fila.get("ID BibliotecaOrigen", "").strip()
-                    id_destino = fila.get("ID BibliotecaDestino", "").strip()
-                    prioridad = fila.get("Prioridad", "tiempo").strip().lower()
-                    
-                    # Validar campos obligatorios
-                    if not all([titulo, isbn, genero, autor]):
-                        print(f"Fila incompleta: {fila}")
+                    encabezado = next(reader)  # ✅ SALTAR ENCABEZADO
+                    print(f"Encabezado libros: {encabezado}")
+                except StopIteration:
+                    print("Archivo vacío o sin encabezado.")
+                    return 0
+                
+                for fila in reader:
+                    if not fila or len(fila) < 9:
+                        print(f"Fila incompleta ignorada: {fila}")
                         continue
-                    
-                    # Crear libro con estado
-                    libro = Libro(
-                        titulo=titulo,
-                        isbn=isbn,
-                        genero=genero,
-                        anio=anio,
-                        autor=autor,
-                        estado=estado
-                    )
-                    
-                    # Guardar campos adicionales como atributos
-                    libro.biblioteca_origen = id_origen
-                    libro.biblioteca_destino = id_destino
-                    libro.prioridad = prioridad
-                    
-                    # Agregar a catálogo
-                    self.agregar_libro(libro, nombre_coleccion)
-                    contador += 1
-                    
-                    # Si tiene origen y destino, programar transferencia
-                    if id_origen and id_destino and red_bibliotecas:
-                        transferencias_programadas.append({
-                            'libro': libro,
-                            'origen': id_origen,
-                            'destino': id_destino,
-                            'criterio': prioridad
-                        })
-                        print(f"📦 Transferencia programada: {titulo} ({id_origen} → {id_destino}, criterio: {prioridad})")
-                    
-                except Exception as e:
-                    print(f"Error al procesar fila: {fila}. Error: {e}")
-                    continue
+                        
+                    try:
+                        # ✅ USAR ÍNDICES DIRECTOS
+                        titulo = fila[0].strip().strip('"')
+                        isbn = fila[1].strip().strip('"')
+                        genero = fila[2].strip().strip('"')
+                        anio = int(fila[3].strip().strip('"'))
+                        autor = fila[4].strip().strip('"')
+                        estado = fila[5].strip().strip('"')
+                        id_origen = fila[6].strip().strip('"')
+                        id_destino = fila[7].strip().strip('"')
+                        prioridad = fila[8].strip().strip('"')
+                        
+                        # Validar campos obligatorios
+                        if not all([titulo, isbn, genero, autor]):
+                            print(f"Campos obligatorios faltantes: {fila}")
+                            continue
+                        
+                        # Crear libro
+                        libro = Libro(
+                            titulo=titulo,
+                            isbn=isbn,
+                            genero=genero,
+                            anio=anio,
+                            autor=autor,
+                            estado=estado,
+                            biblioteca_origen=id_origen,
+                            biblioteca_destino=id_destino,
+                            prioridad=prioridad
+                        )
+                        
+                        # ✅ DISTRIBUCIÓN CORRECTA POR BIBLIOTECA
+                        if red_bibliotecas and id_origen in red_bibliotecas.bibliotecas:
+                            # Agregar a la biblioteca correcta
+                            red_bibliotecas.bibliotecas[id_origen].catalogo_local.agregar_libro(libro, nombre_coleccion)
+                            print(f"✅ Libro '{titulo}' agregado a biblioteca {id_origen}")
+                        else:
+                            # Agregar al catálogo actual (primera biblioteca)
+                            self.agregar_libro(libro, nombre_coleccion)
+                            print(f"✅ Libro '{titulo}' agregado a catálogo actual")
+                        
+                        contador += 1
+                        
+                    except Exception as e:
+                        print(f"❌ Error procesando fila {fila}: {e}")
+                        continue
 
-        print(f"\n✅ Carga completada: {contador} libros importados desde {ruta_archivo}")
-        
-        # Ejecutar transferencias programadas
-        if transferencias_programadas and red_bibliotecas:
-            print(f"\n🚀 Ejecutando {len(transferencias_programadas)} transferencias programadas...")
-            for trans in transferencias_programadas:
-                try:
-                    red_bibliotecas.solicitar_transferencia(
-                        libro=trans['libro'],
-                        id_origen=trans['origen'],
-                        id_destino=trans['destino'],
-                        criterio=trans['criterio']
-                    )
-                except Exception as e:
-                    print(f"Error en transferencia de {trans['libro'].titulo}: {e}")
-        
-        return contador
+            print(f"\n✅ Carga completada: {contador} libros importados")
+            return contador
+            
+        except Exception as e:
+            print(f"Error al cargar libros: {e}")
+            return 0
 
     # -----------------------
     # Exportar y generar gráficos (DOT -> PNG + SVG)

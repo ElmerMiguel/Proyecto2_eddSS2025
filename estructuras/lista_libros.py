@@ -79,45 +79,43 @@ class ListaLibros:
 
     def mostrar_todos(self):
         """
-        Muestra todos los libros en formato tabular.
+        Muestra todos los libros en formato tabular y RETORNA la lista.
         """
         if not self.cabeza:
-            print("No hay libros en el rango especificado.")
-            return
+            print("No hay libros en el catálogo.")
+            return []  # ✅ RETORNAR LISTA VACÍA EN LUGAR DE None
 
-        # Calcular anchos máximos de columnas
-        max_titulo = 6
-        max_autor = 5
-        max_anio = 3
-        max_isbn = 4
-
+        # Recopilar libros
         actual = self.cabeza
         libros = []
-
         while actual:
-            libro = actual.data
-            libros.append(libro)
-            max_titulo = max(max_titulo, len(libro.titulo))
-            max_autor = max(max_autor, len(libro.autor))
-            max_anio = max(max_anio, len(str(libro.anio)))
-            max_isbn = max(max_isbn, len(libro.isbn))
+            libros.append(actual.data)
             actual = actual.siguiente
 
-        print(f"\nTotal de libros encontrados: {len(libros)}")
-        print("=" * (max_titulo + max_autor + max_anio + max_isbn + 12))
+        # Calcular anchos para formato tabular
+        if libros:
+            max_titulo = max(len("TITULO"), max(len(l.titulo) for l in libros))
+            max_autor = max(len("AUTOR"), max(len(l.autor) for l in libros))
+            max_anio = max(len("AÑO"), max(len(str(l.anio)) for l in libros))
+            max_isbn = max(len("ISBN"), max(len(l.isbn) for l in libros))
 
-        encabezado = f"{'TITULO'.ljust(max_titulo + 2)}" \
-                     f"{'AUTOR'.ljust(max_autor + 2)}" \
-                     f"{'AÑO'.ljust(max_anio + 4)}" \
-                     f"{'ISBN'.ljust(max_isbn + 2)}"
-        print(encabezado)
-        print("=" * (max_titulo + max_autor + max_anio + max_isbn + 12))
+            print(f"\nTotal de libros encontrados: {len(libros)}")
+            print("=" * (max_titulo + max_autor + max_anio + max_isbn + 12))
 
-        for libro in libros:
-            fila = f"{libro.titulo.ljust(max_titulo + 2)}" \
-                   f"{libro.autor.ljust(max_autor + 2)}" \
-                   f"{str(libro.anio).ljust(max_anio + 4)}" \
-                   f"{libro.isbn.ljust(max_isbn + 2)}"
-            print(fila)
+            encabezado = f"{'TITULO'.ljust(max_titulo + 2)}" \
+                        f"{'AUTOR'.ljust(max_autor + 2)}" \
+                        f"{'AÑO'.ljust(max_anio + 4)}" \
+                        f"{'ISBN'.ljust(max_isbn + 2)}"
+            print(encabezado)
+            print("=" * (max_titulo + max_autor + max_anio + max_isbn + 12))
 
-        print("=" * (max_titulo + max_autor + max_anio + max_isbn + 12))
+            for libro in libros:
+                fila = f"{libro.titulo.ljust(max_titulo + 2)}" \
+                    f"{libro.autor.ljust(max_autor + 2)}" \
+                    f"{str(libro.anio).ljust(max_anio + 4)}" \
+                    f"{libro.isbn.ljust(max_isbn + 2)}"
+                print(fila)
+
+            print("=" * (max_titulo + max_autor + max_anio + max_isbn + 12))
+        
+        return libros  # ✅ IMPORTANTE: Retornar la lista

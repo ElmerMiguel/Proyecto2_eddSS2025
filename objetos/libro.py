@@ -1,8 +1,18 @@
 class Libro:
     def __init__(self, titulo="", isbn="", genero="", anio=0, autor="", 
                  estado="disponible", biblioteca_origen="", biblioteca_destino="", prioridad="tiempo"):
+        
+        if not titulo or not autor or not genero:
+            raise ValueError("Titulo, autor y genero son obligatorios")
+        
+        if not self._validar_isbn(isbn):
+            raise ValueError(f"ISBN invalido: {isbn}")
+        
+        if anio < 1000 or anio > 2025:
+            raise ValueError(f"Año debe estar entre 1000 y 2025, recibido: {anio}")
+        
         self.titulo = titulo
-        self.isbn = self._validar_isbn(isbn)  # Agregar validación
+        self.isbn = isbn
         self.genero = genero
         self.anio = anio
         self.autor = autor
@@ -11,12 +21,12 @@ class Libro:
         self.biblioteca_destino = biblioteca_destino
         self.prioridad = prioridad
 
-    def _validar_isbn(self, isbn):
-        """Valida formato ISBN de 13 dígitos"""
-        isbn_limpio = isbn.replace("-", "").replace(" ", "")
-        if len(isbn_limpio) != 13 or not isbn_limpio.isdigit():
-            raise ValueError(f"ISBN inválido: debe tener 13 dígitos. Recibido: {isbn}")
-        return isbn_limpio
+    def _validar_isbn(self, isbn: str) -> bool:
+        """Valida que el ISBN tenga exactamente 13 dígitos numéricos"""
+        isbn_limpio = "".join(ch for ch in isbn if ch.isdigit())
+        if len(isbn_limpio) != 13:
+            return False
+        return isbn_limpio.isdigit()
 
     def cambiar_estado(self, nuevo_estado: str):
         estados_validos = ["disponible", "en_transito", "prestado", "agotado"]
