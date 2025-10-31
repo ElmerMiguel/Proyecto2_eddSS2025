@@ -1,5 +1,12 @@
-from typing import List
+from typing import List, Tuple
 from objetos.libro import Libro
+import time
+
+def medir_tiempo(func, libros: List[Libro], clave: str) -> Tuple[List[Libro], float]:
+    inicio = time.perf_counter()
+    resultado = func(libros.copy(), clave)
+    fin = time.perf_counter()
+    return resultado, fin - inicio
 
 def burbuja(libros: List[Libro], clave="titulo") -> List[Libro]:
     n = len(libros)
@@ -51,3 +58,23 @@ def quick_sort(libros: List[Libro], clave="titulo") -> List[Libro]:
     centro = [x for x in libros if getattr(x, clave) == getattr(pivote, clave)]
     der = [x for x in libros if getattr(x, clave) > getattr(pivote, clave)]
     return quick_sort(izq, clave) + centro + quick_sort(der, clave)
+
+def comparar_metodos(libros: List[Libro], clave="titulo"):
+    metodos = {
+        "Burbuja": burbuja,
+        "Seleccion": seleccion,
+        "Insercion": insercion,
+        "Shell Sort": shell_sort,
+        "QuickSort": quick_sort
+    }
+    
+    print(f"\nComparacion de metodos de ordenamiento por {clave}")
+    print("=" * 60)
+    print(f"{'METODO':<20}{'TIEMPO (segundos)':<25}{'ELEMENTOS'}")
+    print("=" * 60)
+    
+    for nombre, metodo in metodos.items():
+        _, tiempo = medir_tiempo(metodo, libros, clave)
+        print(f"{nombre:<20}{tiempo:<25.6f}{len(libros)}")
+    
+    print("=" * 60)

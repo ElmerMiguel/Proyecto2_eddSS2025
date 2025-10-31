@@ -1,16 +1,25 @@
-
 from pathlib import Path
 import csv
 import subprocess
 import time
-from typing import List, Optional
+from typing import List, Optional, Dict
 
-from objetos.libro import Libro
+from objetos.libro import Libro  # Asumimos que esta clase ahora soporta 9 atributos
 from estructuras.lista_libros import ListaLibros
 from estructuras.arbol_avl import ArbolAVL
 from estructuras.arbol_b import ArbolB
 from estructuras.tabla_hash import TablaHash
 from estructuras.arbol_bplus import ArbolBPlus
+# from estructuras.grafo import Grafo  # ELIMINADO
+
+# AGREGAR ESTA CLASE ANTES DE ControladorCatalogo
+class Coleccion:
+    """Agrupa libros por temática. Permite ISBN duplicados dentro de la misma colección."""
+    def __init__(self, nombre: str, descripcion: str = ""):
+        self.nombre = nombre
+        self.descripcion = descripcion
+        self.libros = ListaLibros()
+        self.isbns_en_coleccion = set()  # Para validación rápida
 
 
 class ControladorCatalogo:
@@ -24,18 +33,23 @@ class ControladorCatalogo:
         self.arbol_fechas = ArbolB(3)
         self.tabla_isbn = TablaHash()
         self.arbol_generos = ArbolBPlus()
+        # self.grafo_red = Grafo()  # ELIMINADO
+        self.colecciones: Dict[str, Coleccion] = {}  # AGREGADO
 
     # -----------------------
     # Operaciones CRUD
     # -----------------------
-    def agregar_libro(self, libro: Libro) -> None:
+    # REEMPLAZO COMPLETO DE agregar_libro
+    def agregar_libro(self, libro: Libro, nombre_coleccion: str = "General") -> None:
         if not self.validar_isbn(libro.isbn):
             print("Error: ISBN invalido. Debe tener 13 dígitos numéricos.")
             return
 
-        if self.tabla_isbn.buscar(libro.isbn) is not None:
-            print(f"Error: Ya existe un libro con ISBN {libro.isbn}. No se puede agregar duplicado.")
-            return
+        # Validar si ISBN existe en OTRA colección
+        for col_nombre, col in self.colecciones.items():
+            if col_nombre != nombre_coleccion and libro.isbn in col.isbns_en_coleccion:
+                print(f"Error: ISBN {libro.isbn} ya existe en colección '{col_nombre}'. No se puede agregar a '{nombre_coleccion}'.")
+                return
 
         if not libro.titulo or not libro.autor or not libro.genero:
             print("Error: Todos los campos son obligatorios.")
@@ -45,14 +59,23 @@ class ControladorCatalogo:
             print("Error: Año debe estar entre 1000 y 2025.")
             return
 
-        # Insertar en todas las estructuras
+        # Crear colección si no existe
+        if nombre_coleccion not in self.colecciones:
+            self.colecciones[nombre_coleccion] = Coleccion(nombre_coleccion)
+            print(f"Nueva colección creada: {nombre_coleccion}")
+
+        # Agregar a colección
+        self.colecciones[nombre_coleccion].libros.insertar(libro)
+        self.colecciones[nombre_coleccion].isbns_en_coleccion.add(libro.isbn)
+
+        # Insertar en estructuras globales
         self.lista_secuencial.insertar(libro)
         self.arbol_titulos.insertar(libro)
         self.arbol_fechas.insertar(libro)
         self.tabla_isbn.insertar(libro)
         self.arbol_generos.insertar(libro)
 
-        print(f"Libro agregado correctamente: {libro.titulo}")
+        print(f"Libro agregado a colección '{nombre_coleccion}': {libro.titulo}")
 
     def eliminar_libro(self, isbn: str) -> None:
         libro = self.tabla_isbn.buscar(isbn)
@@ -63,16 +86,20 @@ class ControladorCatalogo:
         titulo = libro.titulo
         genero = libro.genero
         anio = libro.anio
+        
+        # Eliminar de colecciones 
+        for col in self.colecciones.values():
+            if isbn in col.isbns_en_coleccion:
+                col.libros.eliminar(isbn) 
+                col.isbns_en_coleccion.discard(isbn) 
 
         self.lista_secuencial.eliminar(isbn)
-        # Aquí asumimos que arbol_titulos.eliminar recibe el título
         self.arbol_titulos.eliminar(titulo)
         self.tabla_isbn.eliminar(isbn)
-        # Para arbol_fechas y arbol_generos asumimos API que acepta (anio, isbn) o (genero, isbn)
+        
         try:
             self.arbol_fechas.eliminar(anio, isbn)
         except TypeError:
-            # si la implementación espera solo anio, ajustar más tarde
             self.arbol_fechas.eliminar(anio)
         try:
             self.arbol_generos.eliminar(genero, isbn)
@@ -91,10 +118,8 @@ class ControladorCatalogo:
         return self.tabla_isbn.buscar(isbn)
 
     def buscar_por_fecha(self, anio: int) -> List[Libro]:
-        # Asume que arbol_fechas.buscar_todos(anio) retorna lista de Libro
         if hasattr(self.arbol_fechas, "buscar_todos"):
             return self.arbol_fechas.buscar_todos(anio)
-        # alternativa: buscar(anio)
         resultado = self.arbol_fechas.buscar(anio)
         return resultado if resultado is not None else []
 
@@ -102,17 +127,15 @@ class ControladorCatalogo:
         return self.arbol_generos.buscar(genero)
 
     def buscar_por_rango_fechas(self, inicio: int, fin: int):
-        # Retorna lo que la estructura devuelva (en C++ devolvía ListaLibros)
         if hasattr(self.arbol_fechas, "buscar_por_rango_fechas"):
             return self.arbol_fechas.buscar_por_rango_fechas(inicio, fin)
-        # si no existe, construimos una lista combinando años (poco eficiente)
         resultados = []
         for anio in range(inicio, fin + 1):
             resultados.extend(self.buscar_por_fecha(anio))
         return resultados
 
     # -----------------------
-    # Importación CSV
+    # Importación CSV (MODIFICADO para 9 campos)
     # -----------------------
     def cargar_desde_csv(self, ruta_archivo: str = "") -> None:
         base_dir = Path(".")
@@ -165,21 +188,28 @@ class ControladorCatalogo:
             for fila in reader:
                 if not fila:
                     continue
-                # intentamos manejar filas con comillas / separadores
-                # Esperamos al menos 5 columnas: titulo,isbn,genero,anio,autor
-                if len(fila) < 5:
-                    # intentar unir columnas finales si el título contenía comas (básico)
-                    print("(X) Línea ignorada (formato inesperado):", fila)
+                
+                # ESPERAMOS AHORA 9 COLUMNAS PARA EL NUEVO FORMATO
+                # "Titulo","ISBN","Genero","Año","Autor","Estado","ID BibliotecaOrigen","ID BibliotecaDestino","Prioridad"
+                if len(fila) < 9: 
+                    print(f"(X) Línea ignorada (formato inesperado, se esperaban 9 campos): {fila}")
                     libros_ignorados += 1
                     continue
 
-                titulo, isbn, genero, anio_str, autor = fila[0], fila[1], fila[2], fila[3], fila[4]
+                # Extraer los 9 campos
+                titulo, isbn, genero, anio_str, autor, estado, id_origen, id_destino, prioridad = \
+                    fila[0], fila[1], fila[2], fila[3], fila[4], fila[5], fila[6], fila[7], fila[8]
 
+                # Limpieza de datos
                 titulo = titulo.strip().strip('"')
                 isbn = isbn.strip().strip('"')
                 genero = genero.strip().strip('"')
                 anio_str = anio_str.strip().strip('"')
                 autor = autor.strip().strip('"')
+                estado = estado.strip().strip('"') # Nuevo campo
+                id_origen = id_origen.strip().strip('"') # Nuevo campo
+                id_destino = id_destino.strip().strip('"') # Nuevo campo
+                prioridad = prioridad.strip().strip('"') # Nuevo campo
 
                 if not self.validar_isbn(isbn):
                     print(f"(X) ISBN invalido ignorado: {isbn} - {titulo}")
@@ -192,13 +222,36 @@ class ControladorCatalogo:
                     print(f"(X) Linea ignorada - anio invalido: {titulo}")
                     libros_ignorados += 1
                     continue
+                
+                # Validacion de Prioridad
+                if prioridad.lower() not in ["tiempo", "costo"]:
+                    print(f"(X) Prioridad invalida ignorada: {prioridad} - {titulo}")
+                    libros_ignorados += 1
+                    continue
+
 
                 if self.tabla_isbn.buscar(isbn) is not None:
+                    # NOTA: Esto evita duplicados globales. Si desea que los libros importados
+                    # se agreguen a colecciones, debe llamar a self.agregar_libro(libro, "General")
+                    # en lugar de insertar directamente.
                     print(f"(X) ISBN duplicado ignorado: {isbn} - {titulo}")
                     libros_ignorados += 1
                     continue
 
-                libro = Libro(titulo=titulo, isbn=isbn, genero=genero, anio=anio, autor=autor)
+                # Creacion del objeto Libro con los 9 atributos
+                libro = Libro(
+                    titulo=titulo,
+                    isbn=isbn,
+                    genero=genero,
+                    anio=anio,
+                    autor=autor,
+                    estado=estado,
+                    biblioteca_origen=id_origen,     
+                    biblioteca_destino=id_destino,   
+                    prioridad=prioridad
+                )
+                
+                # Insertar en estructuras globales (Asume que es parte del catálogo global)
                 self.lista_secuencial.insertar(libro)
                 self.arbol_titulos.insertar(libro)
                 self.arbol_fechas.insertar(libro)
@@ -214,8 +267,8 @@ class ControladorCatalogo:
         print("Carga desde CSV completada.")
 
     # -----------------------
-# Exportar y generar gráficos (DOT -> PNG + SVG)
-# -----------------------
+    # Exportar y generar gráficos (DOT -> PNG + SVG)
+    # -----------------------
     def exportar_avl(self, archivo: str) -> None:
         self.arbol_titulos.exportar_dot(archivo)
         self._generar_grafica_desde_dot(Path(archivo).with_suffix("").as_posix())
@@ -246,7 +299,6 @@ class ControladorCatalogo:
     def _generar_grafica_desde_dot(self, archivo_base: str) -> None:
         """
         Ejecuta Graphviz 'dot' para generar PNG y SVG desde .dot.
-        archivo_base: ruta sin extensión (ejemplo: 'graficos/arbol')
         """
         dot_file = Path(f"{archivo_base}.dot")
         png_file = Path(f"{archivo_base}.png")
@@ -325,6 +377,24 @@ class ControladorCatalogo:
 
     def mostrar_generos_disponibles(self) -> None:
         self.arbol_generos.listar_generos()
+    
+    # -----------------------
+    # Operaciones de Colección (Nuevas)
+    # -----------------------
+    def listar_colecciones(self) -> None:
+        if not self.colecciones:
+            print("No hay colecciones.")
+            return
+        print("\n=== COLECCIONES ===")
+        for nombre, col in self.colecciones.items():
+            print(f"- {nombre}: {col.libros.tamanio} libros")
+
+    def listar_libros_coleccion(self, nombre_coleccion: str) -> None:
+        if nombre_coleccion not in self.colecciones:
+            print(f"Colección '{nombre_coleccion}' no existe.")
+            return
+        print(f"\n=== LIBROS EN '{nombre_coleccion}' ===")
+        self.colecciones[nombre_coleccion].libros.mostrar_todos()
 
     # -----------------------
     # Validaciones

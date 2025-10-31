@@ -82,7 +82,6 @@ Al ingresar un libro, se puede especificar que su destino final será otra bibli
 
 * Los libros podrán visualizarse en diferentes modos:
   * Ordenados alfabéticamente, por año, género o autor.
-  * Clasificados por nivel de magia o rareza.
 * El sistema deberá permitir **ordenar el catálogo completo** o solo una colección específica, con distintas estrategias de organización seleccionables por el usuario.
 * Los usuarios podrán **comparar la velocidad** de diferentes métodos de ordenamiento mediante métricas visibles o tiempos registrados.
 * Utilizar **pilas** para el control de libros devueltos o para operaciones de **“deshacer” (rollback)** de registros erróneos.
@@ -94,7 +93,7 @@ Al ingresar un libro, se puede especificar que su destino final será otra bibli
   * Autor.
   * ISBN mágico.
   * Año o rango de fechas.
-  * Colección o tipo de magia.
+  * Colección.
 * Se debe garantizar que las búsquedas sean **rápidas y eficientes**, incluso con catálogos grandes.
 * En caso de que un libro no exista, el sistema deberá ofrecer opciones alternativas o mostrar coincidencias parciales.
 * **Incluir**:
@@ -185,9 +184,41 @@ Desarrollar una interfaz visual intuitiva que permita:
 
 El sistema deberá permitir la carga de datos desde archivos externos para:
 
-1. **Catálogo de Libros** (Formato: Título, Autor, ISBN, etc.).
-2. **Bibliotecas** (Formato: Nombre, Ubicación, T. Ingreso, T. Traspaso, I. Despacho).
-3. **Conexiones entre Bibliotecas** (Formato: Origen, Destino, Peso (Tiempo/Costo)).
+1. **Catálogo de Libros** 
+   
+   Formato:
+   
+   ```csv
+   "Titulo","ISBN","Genero","Año","Autor","Estado","ID BibliotecaOrigen","ID BibliotecaDestino","Prioridad"
+   "Cien años de soledad","978-8747417926","Realismo mágico","1967","Gabriel García Márquez","disponible","A-104","B-285","tiempo"
+   "1984","978-8515242535","Ciencia Ficción/Distopía","1949","George Orwell","En tránsito","A-104","B-285","costo"
+   "Orgullo y prejuicio","978-8748151955","Novela Romántica","1813","Jane Austen","Agotado","A-104","B-285","tiempo"
+   "El Código Da Vinci","978-8747422978","Thriller/Misterio","2003","Dan Brown","Prestado","C-308","B-285","costo"
+   ```
+
+2. **Bibliotecas** 
+   
+   Formato:
+   
+   ```csv
+   "ID","Nombre","Ubicación","t_ingreso","t_traspaso","dispatchInterval"
+   "A-101","Almacén Principal","Madrid",28800,45000,3600
+   "B-205","Centro de Distribución","Barcelona",32400,50400,1800
+   "C-309","Plataforma Logística Sur","Valencia",39600,60300,2700
+   "D-412","Depósito Temporal","Sevilla",27900,40500,5400
+   ```
+
+3. **Conexiones entre Bibliotecas** 
+   
+   Formato:
+   
+   ```csv
+   "OrigenID","DestinoID","Tiempo","Costo"
+   "A-101","B-205",12600,250.00
+   "A-101","C-309",18000,400.00
+   "C-309","B-205",9000,150.00
+   "B-205","D-412",15120,320.00
+   ```
 
 **Validaciones:** Verificar existencia y formato de los archivos. Ignorar líneas mal formateadas sin detener la carga. Mostrar mensajes claros ante errores o rutas inexistentes.
 

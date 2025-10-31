@@ -1,4 +1,3 @@
-
 from objetos.libro import Libro
 
 
@@ -19,6 +18,7 @@ class ListaLibros:
 
     def __init__(self):
         self.cabeza = None
+        self.tamanio = 0 
 
     def insertar(self, libro: Libro):
         """
@@ -27,6 +27,7 @@ class ListaLibros:
         nuevo = NodoLista(libro)
         nuevo.siguiente = self.cabeza
         self.cabeza = nuevo
+        self.tamanio += 1 
 
     def eliminar(self, isbn: str) -> bool:
         """
@@ -42,7 +43,9 @@ class ListaLibros:
                     anterior.siguiente = actual.siguiente
                 else:
                     self.cabeza = actual.siguiente
-                return True
+                    
+                self.tamanio -= 1  
+                
             anterior = actual
             actual = actual.siguiente
 
