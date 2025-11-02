@@ -110,7 +110,13 @@ class BusquedaTab:
         """Limpia los campos de búsqueda."""
         self.search_text_var.set("")
         self.search_aux_var.set("")
-        self._on_criterio_cambiado() # Opcional: restablecer el estado del combobox/entry
+        self._on_criterio_cambiado() 
+        
+    def refrescar_datos(self):
+        """Actualiza comboboxes después de cambios en red_bibliotecas"""
+        if hasattr(self, 'ruta_origen_combo') and hasattr(self, 'ruta_destino_combo'):
+            self.actualizar_comboboxes_rutas(self.ruta_origen_combo, self.ruta_destino_combo)
+        self._obtener_generos_disponibles()
 
     def _on_criterio_cambiado(self, *args):
         """Maneja el cambio de criterio de búsqueda para actualizar la UI."""

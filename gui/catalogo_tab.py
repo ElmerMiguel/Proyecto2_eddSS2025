@@ -159,7 +159,7 @@ class CatalogoTab:
         
         try:
             item = self.catalog_tree.item(selected[0])
-            isbn = item['values'][2]
+            isbn = str(item['values'][2])
             
             eliminado = False
             for biblioteca in self.red_bibliotecas.bibliotecas.values():
@@ -271,8 +271,8 @@ class CatalogoTab:
                         inicio, fin = int(texto), int(auxiliar)
                     except ValueError:
                         continue
-                    # Asumiendo que buscar_por_rango_fechas retorna una lista de libros
-                    for libro in catalogo.buscar_por_rango_fechas(inicio, fin):
+                    resultado_libros = catalogo.buscar_por_rango_fechas(inicio, fin)
+                    for libro in resultado_libros:
                         libros.append((libro, biblioteca_id))
 
             except Exception as e:

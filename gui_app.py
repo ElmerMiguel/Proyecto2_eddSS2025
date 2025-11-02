@@ -55,7 +55,7 @@ def iniciar_gui():
             ctrl_red.callback_actualizar()
         if ctrl_simulacion:
             ctrl_simulacion.actualizar_estado()
-        if hasattr(ctrl_busqueda, "refrescar_datos") and callable(ctrl_busqueda.refrescar_datos):
+        if ctrl_busqueda and hasattr(ctrl_busqueda, "refrescar_datos"):
             ctrl_busqueda.refrescar_datos()
     
     ctrl_pruebas.on_datos_actualizados = actualizar_ui

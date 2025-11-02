@@ -139,3 +139,33 @@ class ArbolAVL:
             self._recopilar_libros(nodo.izq, libros)
             libros.append(nodo.data)
             self._recopilar_libros(nodo.der, libros)
+            
+    def exportar_dot(self, archivo_dot: str) -> None:
+        """Genera un archivo DOT para visualizar el arbol AVL"""
+        with open(archivo_dot, 'w') as f:
+            f.write('digraph ArbolAVL {\n')
+            f.write('    node [shape=circle, style=filled, fillcolor=lightblue];\n')
+            f.write('    edge [color=black];\n')
+            
+            if self.raiz:
+                self._escribir_nodo_dot(f, self.raiz)
+            else:
+                f.write('    empty [label="Arbol vacio", shape=box, fillcolor=lightgray];\n')
+                
+            f.write('}\n')
+
+    def _escribir_nodo_dot(self, f, nodo: NodoAVL) -> None:
+        """Escribe un nodo y sus conexiones en formato DOT"""
+        if not nodo:
+            return
+            
+        label = f"{nodo.data.titulo}\\n(h:{nodo.altura})"
+        f.write(f'    "{id(nodo)}" [label="{label}"];\n')
+        
+        if nodo.izq:
+            f.write(f'    "{id(nodo)}" -> "{id(nodo.izq)}" [label="L"];\n')
+            self._escribir_nodo_dot(f, nodo.izq)
+        
+        if nodo.der:
+            f.write(f'    "{id(nodo)}" -> "{id(nodo.der)}" [label="R"];\n')
+            self._escribir_nodo_dot(f, nodo.der)
