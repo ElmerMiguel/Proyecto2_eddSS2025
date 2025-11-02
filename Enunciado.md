@@ -104,7 +104,7 @@ Al ingresar un libro, se puede especificar que su destino final será otra bibli
 
 ---
 
-## 🌐 Red de Bibliotecas (Grafo)
+## 🕸️ Red de Bibliotecas (Grafo)
 
 Cada biblioteca será un **nodo** del grafo, y las conexiones entre ellas serán **aristas ponderadas** que representan el tiempo o costo de traslado.
 

@@ -196,7 +196,7 @@ def crear_red_tab(notebook, red_bibliotecas, callback_actualizar=None, callback_
     """Crear y retornar la pestaña de Red"""
     
     tab_red = ttk.Frame(notebook, style='Sky.TFrame')
-    notebook.add(tab_red, text="🌐 Gestión de la Red (Grafo)")
+    notebook.add(tab_red, text="🕸️ Gestión de la Red (Grafo)")
     
     tab_red.grid_columnconfigure(0, weight=1)
     tab_red.grid_columnconfigure(1, weight=3)
@@ -259,7 +259,7 @@ def crear_red_tab(notebook, red_bibliotecas, callback_actualizar=None, callback_
     grafo_frame = ttk.Frame(tab_red, style='Sky.TFrame', padding=10)
     grafo_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
     
-    tk.Label(grafo_frame, text="🌍 RED DE BIBLIOTECAS", 
+    tk.Label(grafo_frame, text="🕸️ RED DE BIBLIOTECAS", 
              font=FONT_TITLE_LARGE, fg=ACCENT_COLOR, bg=FILTER_BG).pack(pady=(0, 10))
     
     ctrl.grafo_canvas = tk.Canvas(grafo_frame, bg=DASH_CARD_BG, 
