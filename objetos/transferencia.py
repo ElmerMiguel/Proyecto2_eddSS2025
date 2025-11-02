@@ -1,132 +1,143 @@
 from objetos.libro import Libro
 from estructuras.grafo import Grafo
-from typing import List, Optional
-import time
+from typing import List, Optional, Dict
 
 
 class Transferencia:
     """
-    Representa una transferencia de libro entre bibliotecas.
-    Gestiona la ruta calculada y el estado del envio.
+    Representa el traslado de un libro entre bibliotecas.
+    Gestiona la ruta planeada, el progreso y las metricas del envio.
     """
-    
+
     def __init__(self, libro: Libro, origen: str, destino: str, prioridad: str = "tiempo"):
         self.libro = libro
         self.origen = origen
         self.destino = destino
-        self.prioridad = prioridad
-        
+        self.prioridad = prioridad  # "tiempo" o "costo"
+        self.estado = "pendiente"   # pendiente, en_transito, completado, cancelado
+
         self.ruta: List[str] = []
-        self.peso_total: float = 0.0
-        self.indice_actual = 0
-        
-        self.estado = "pendiente"
-        self.tiempo_inicio: Optional[float] = None
-        self.tiempo_fin: Optional[float] = None
-        
-        self.eta_segundos = 0
+        self.segmentos: List[Dict[str, float]] = []  # cada elemento guarda origen, destino, tiempo, costo
+        self.indice_segmento = 0
+
+        self.tiempo_total = 0.0
+        self.tiempo_recorrido = 0.0
+        self.costo_total = 0.0
+        self.costo_recorrido = 0.0
 
     def calcular_ruta(self, grafo: Grafo) -> bool:
         """
-        Calcula la ruta optima usando Dijkstra segun la prioridad.
-        Retorna True si encontro ruta, False si no hay camino.
+        Calcula la ruta optima segun la prioridad.
+        Retorna True si encontro ruta valida.
         """
-        if self.prioridad == "tiempo":
-            peso, ruta = grafo.dijkstra_tiempo(self.origen, self.destino)
+        if self.prioridad == "costo" and hasattr(grafo, "dijkstra_costo"):
+            costo, ruta = grafo.dijkstra_costo(self.origen, self.destino)
+            tiempo = grafo.calcular_tiempo_ruta(ruta) if ruta else 0
         else:
-            peso, ruta = grafo.dijkstra_costo(self.origen, self.destino)
-        
-        if not ruta or peso == float('inf'):
-            print(f"No existe ruta entre {self.origen} y {self.destino}")
+            tiempo, ruta = grafo.dijkstra_tiempo(self.origen, self.destino)
+            costo = grafo.calcular_costo_ruta(ruta) if ruta else 0
+
+        if not ruta:
+            self.estado = "cancelado"
             return False
-        
+
         self.ruta = ruta
-        self.peso_total = peso
-        self.eta_segundos = grafo.calcular_eta(self.origen, self.destino, self.prioridad)
-        
-        print(f"Ruta calculada: {' -> '.join(ruta)}")
-        print(f"Peso total ({self.prioridad}): {peso}")
-        print(f"ETA: {self.eta_segundos} segundos")
-        
+        self.tiempo_total = float(tiempo)
+        self.costo_total = float(costo)
+        self.segmentos.clear()
+
+        for i in range(len(ruta) - 1):
+            inicio = ruta[i]
+            fin = ruta[i + 1]
+            pesos = grafo.obtener_pesos_arista(inicio, fin)
+            if not pesos:
+                # datos inconsistentes: cancelar
+                self.estado = "cancelado"
+                self.ruta = []
+                self.segmentos.clear()
+                return False
+            tiempo_seg, costo_seg = pesos
+            self.segmentos.append(
+                {
+                    "origen": inicio,
+                    "destino": fin,
+                    "tiempo": tiempo_seg,
+                    "costo": costo_seg,
+                }
+            )
+
+        self.estado = "planificado"
+        self.indice_segmento = 0
+        self.tiempo_recorrido = 0.0
+        self.costo_recorrido = 0.0
         return True
 
     def iniciar_envio(self) -> None:
-        """Inicia el proceso de envio."""
+        """Marca la transferencia como iniciada."""
         if not self.ruta:
-            print("Error: Debe calcular la ruta primero")
-            return
-        
-        self.estado = "en_proceso"
-        self.tiempo_inicio = time.time()
-        self.libro.cambiar_estado("en_transito")
-        self.libro.biblioteca_origen = self.origen
-        self.libro.biblioteca_destino = self.destino
-        
-        print(f"Transferencia iniciada: {self.libro.titulo}")
-        print(f"Desde: {self.origen} -> Hacia: {self.destino}")
+            raise ValueError("No se ha calculado ruta para la transferencia")
+        self.estado = "en_transito"
+        self.indice_segmento = 0
+        self.tiempo_recorrido = 0.0
+        self.costo_recorrido = 0.0
 
     def avanzar_paso(self) -> Optional[str]:
         """
-        Avanza al siguiente nodo de la ruta.
-        Retorna el siguiente nodo o None si ya llego al destino.
+        Avanza un segmento en la ruta.
+        Retorna el identificador del nodo destino alcanzado o None si finalizo.
         """
-        if self.estado != "en_proceso":
+        if self.estado != "en_transito":
             return None
-        
-        if self.indice_actual >= len(self.ruta) - 1:
+
+        if self.indice_segmento >= len(self.segmentos):
             self.completar_envio()
             return None
-        
-        self.indice_actual += 1
-        nodo_actual = self.ruta[self.indice_actual]
-        
-        print(f"Libro '{self.libro.titulo}' ahora en: {nodo_actual}")
-        return nodo_actual
+
+        segmento = self.segmentos[self.indice_segmento]
+        self.tiempo_recorrido += float(segmento["tiempo"])
+        self.costo_recorrido += float(segmento["costo"])
+        self.indice_segmento += 1
+
+        if self.indice_segmento >= len(self.segmentos):
+            self.completar_envio()
+            return self.destino
+
+        return self.segmentos[self.indice_segmento]["origen"]
 
     def completar_envio(self) -> None:
         """Marca la transferencia como completada."""
         self.estado = "completado"
-        self.tiempo_fin = time.time()
-        self.libro.cambiar_estado("disponible")
-        
-        tiempo_real = self.tiempo_fin - self.tiempo_inicio if self.tiempo_inicio else 0
-        print(f"Transferencia completada: {self.libro.titulo}")
-        print(f"Tiempo total: {tiempo_real:.2f} segundos")
+        self.tiempo_recorrido = self.tiempo_total
+        self.costo_recorrido = self.costo_total
 
     def obtener_progreso(self) -> float:
-        """Retorna el porcentaje de progreso (0.0 a 1.0)."""
-        if not self.ruta:
+        """Retorna un valor entre 0 y 1 que representa el avance."""
+        if not self.segmentos:
             return 0.0
-        return self.indice_actual / (len(self.ruta) - 1)
+        progreso = self.indice_segmento / float(len(self.segmentos))
+        return min(max(progreso, 0.0), 1.0)
 
-    def obtener_nodo_actual(self) -> Optional[str]:
-        """Retorna el nodo actual en la ruta."""
-        if not self.ruta or self.indice_actual >= len(self.ruta):
-            return None
-        return self.ruta[self.indice_actual]
+    def obtener_tiempo_restante(self) -> float:
+        """Retorna el tiempo estimado restante para finalizar."""
+        return max(self.tiempo_total - self.tiempo_recorrido, 0.0)
 
-    def obtener_siguiente_nodo(self) -> Optional[str]:
-        """Retorna el siguiente nodo en la ruta."""
-        if not self.ruta or self.indice_actual >= len(self.ruta) - 1:
-            return None
-        return self.ruta[self.indice_actual + 1]
+    def obtener_costo_restante(self) -> float:
+        """Retorna el costo restante estimado."""
+        return max(self.costo_total - self.costo_recorrido, 0.0)
 
-    def cancelar_envio(self) -> None:
-        """Cancela la transferencia."""
-        self.estado = "cancelado"
-        self.libro.cambiar_estado("disponible")
-        print(f"Transferencia cancelada: {self.libro.titulo}")
-
-    def obtener_tiempo_restante(self) -> int:
-        """Calcula el tiempo restante estimado en segundos."""
-        if self.estado != "en_proceso" or not self.tiempo_inicio:
-            return 0
-        
-        tiempo_transcurrido = time.time() - self.tiempo_inicio
-        tiempo_restante = max(0, self.eta_segundos - int(tiempo_transcurrido))
-        return tiempo_restante
-
-    def __str__(self) -> str:
-        progreso = int(self.obtener_progreso() * 100)
-        return (f"Transferencia({self.libro.titulo}, {self.origen}->{self.destino}, "
-                f"{self.estado}, {progreso}%)")
+    def resumen(self) -> dict:
+        """Retorna un resumen de la transferencia."""
+        return {
+            "isbn": self.libro.isbn,
+            "titulo": self.libro.titulo,
+            "origen": self.origen,
+            "destino": self.destino,
+            "prioridad": self.prioridad,
+            "estado": self.estado,
+            "ruta": self.ruta,
+            "tiempo_total": self.tiempo_total,
+            "tiempo_recorrido": self.tiempo_recorrido,
+            "costo_total": self.costo_total,
+            "costo_recorrido": self.costo_recorrido,
+            "progreso": self.obtener_progreso(),
+        }

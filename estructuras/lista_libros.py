@@ -29,6 +29,9 @@ class ListaLibros:
         self.cabeza = nuevo
         self.tamanio += 1 
 
+    
+    
+    
     def eliminar(self, isbn: str) -> bool:
         """
         Elimina un libro de la lista por su ISBN.
@@ -43,10 +46,8 @@ class ListaLibros:
                     anterior.siguiente = actual.siguiente
                 else:
                     self.cabeza = actual.siguiente
-                
                 self.tamanio -= 1
-                return True 
-            
+                return True
             anterior = actual
             actual = actual.siguiente
 
@@ -76,6 +77,10 @@ class ListaLibros:
                 return actual.data
             actual = actual.siguiente
         return None
+    
+    
+    
+    
 
     def mostrar_todos(self):
         """
@@ -118,4 +123,7 @@ class ListaLibros:
 
             print("=" * (max_titulo + max_autor + max_anio + max_isbn + 12))
         
-        return libros  # ✅ IMPORTANTE: Retornar la lista
+        return libros 
+    
+    
+        

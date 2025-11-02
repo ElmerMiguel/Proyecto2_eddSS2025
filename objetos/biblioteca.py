@@ -1,5 +1,6 @@
 from objetos.controlador_catalogo import ControladorCatalogo
 from objetos.libro import Libro
+from objetos.inventario import Inventario
 from estructuras.cola import Cola
 from estructuras.pila import Pila
 from estructuras.metodos_ordenamiento import comparar_metodos
@@ -14,7 +15,8 @@ class Biblioteca:
     """
     
     def __init__(self, id_biblioteca: str, nombre: str, ubicacion: str, 
-                 tiempo_ingreso: int = 10, tiempo_traspaso: int = 5, intervalo_despacho: int = 3):
+                 tiempo_ingreso: int = 10, tiempo_traspaso: int = 5, intervalo_despacho: int = 3,
+                 inventario: Optional[Inventario] = None):
         self.id = id_biblioteca
         self.nombre = nombre
         self.ubicacion = ubicacion
@@ -28,6 +30,7 @@ class Biblioteca:
         self.cola_salida = Cola(tipo="salida")
         
         self.catalogo_local = ControladorCatalogo()
+        self.inventario = inventario
         
         self.pila_rollback = Pila()
         
@@ -37,8 +40,32 @@ class Biblioteca:
             "libros_ingresados": 0,
             "libros_enviados": 0,
             "libros_recibidos": 0,
-            "tiempo_total_procesamiento": 0
+            "tiempo_total_procesamiento": 0.0
         }
+
+    def set_inventario(self, inventario: Inventario) -> None:
+        self.inventario = inventario
+
+    def _actualizar_inventario(self, libro: Libro, delta: int) -> None:
+        if not self.inventario:
+            return
+        genero = libro.genero if libro.genero else "SinGenero"
+        if delta > 0:
+            self.inventario.incrementar(self.id, genero, delta)
+        elif delta < 0:
+            self.inventario.decrementar(self.id, genero, abs(delta))
+
+    def agregar_libro_catalogo(self, libro: Libro, registrar_rollback: bool = True, contar_ingreso: bool = True) -> None:
+        libro.biblioteca_origen = libro.biblioteca_origen or self.id
+        if not libro.biblioteca_destino:
+            libro.biblioteca_destino = self.id
+        libro.cambiar_estado("disponible")
+        self.catalogo_local.agregar_libro(libro)
+        self._actualizar_inventario(libro, 1)
+        if registrar_rollback:
+            self.pila_rollback.apilar(libro)
+        if contar_ingreso:
+            self.estadisticas["libros_ingresados"] += 1
 
     def agregar_libro_ingreso(self, libro: Libro) -> None:
         """Agrega un libro a la cola de ingreso."""
@@ -55,21 +82,19 @@ class Biblioteca:
         if self.cola_ingreso.esta_vacia():
             return False
         
+        inicio = time.perf_counter()
         libro = self.cola_ingreso.desencolar()
         
-        time.sleep(self.tiempo_ingreso / 1000)
-        
         if libro.biblioteca_destino == self.id or not libro.biblioteca_destino:
-            libro.cambiar_estado("disponible")
-            self.catalogo_local.agregar_libro(libro)
-            self.estadisticas["libros_ingresados"] += 1
-            self.pila_rollback.apilar(libro)
+            self.agregar_libro_catalogo(libro)
             print(f"Libro '{libro.titulo}' agregado al catalogo de {self.nombre}")
         else:
             libro.cambiar_estado("en_transito")
             self.cola_traspaso.encolar(libro)
             print(f"Libro '{libro.titulo}' movido a cola de traspaso en {self.nombre}")
         
+        fin = time.perf_counter()
+        self.estadisticas["tiempo_total_procesamiento"] += fin - inicio
         return True
 
     def procesar_traspaso(self) -> bool:
@@ -80,11 +105,12 @@ class Biblioteca:
         if self.cola_traspaso.esta_vacia():
             return False
         
+        inicio = time.perf_counter()
         libro = self.cola_traspaso.desencolar()
-        
-        time.sleep(self.tiempo_traspaso / 1000)
-        
         self.cola_salida.encolar(libro)
+        fin = time.perf_counter()
+        self.estadisticas["tiempo_total_procesamiento"] += fin - inicio
+        
         print(f"Libro '{libro.titulo}' preparado para envio desde {self.nombre}")
         
         return True
@@ -102,12 +128,25 @@ class Biblioteca:
         if self.cola_salida.esta_vacia():
             return None
         
+        inicio = time.perf_counter()
         libro = self.cola_salida.desencolar()
+        libro.cambiar_estado("en_transito")
         self.ultimo_despacho = tiempo_actual
         self.estadisticas["libros_enviados"] += 1
+        fin = time.perf_counter()
+        self.estadisticas["tiempo_total_procesamiento"] += fin - inicio
         
         print(f"Libro '{libro.titulo}' despachado desde {self.nombre}")
         return libro
+
+    def registrar_recepcion(self, libro: Libro) -> None:
+        """
+        Registra la llegada de un libro proveniente de otra biblioteca.
+        """
+        libro.biblioteca_destino = self.id
+        self.agregar_libro_catalogo(libro, registrar_rollback=True, contar_ingreso=False)
+        self.estadisticas["libros_recibidos"] += 1
+        print(f"Libro '{libro.titulo}' recibido en {self.nombre}")
 
     def obtener_libro_por_isbn(self, isbn: str) -> Optional[Libro]:
         """Busca un libro en el catalogo local por ISBN."""
@@ -118,6 +157,7 @@ class Biblioteca:
         libro = self.obtener_libro_por_isbn(isbn)
         if libro:
             self.catalogo_local.eliminar_libro(isbn)
+            self._actualizar_inventario(libro, -1)
             return True
         return False
 
@@ -129,6 +169,7 @@ class Biblioteca:
         
         libro = self.pila_rollback.desapilar()
         self.catalogo_local.eliminar_libro(libro.isbn)
+        self._actualizar_inventario(libro, -1)
         print(f"Se deshizo el ingreso de '{libro.titulo}'")
         return libro
 
@@ -206,6 +247,7 @@ class Biblioteca:
         print(f"  Libros ingresados: {self.estadisticas['libros_ingresados']}")
         print(f"  Libros enviados: {self.estadisticas['libros_enviados']}")
         print(f"  Libros recibidos: {self.estadisticas['libros_recibidos']}")
+        print(f"  Tiempo total procesamiento: {self.estadisticas['tiempo_total_procesamiento']:.4f}s")
         print("\nESTADO DE COLAS:")
         estado = self.obtener_estado_colas()
         print(f"  Cola Ingreso: {estado['ingreso']['cantidad']} libros")

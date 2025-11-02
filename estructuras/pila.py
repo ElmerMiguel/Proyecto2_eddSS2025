@@ -4,7 +4,7 @@ from typing import Optional
 class NodoPila:
     def __init__(self, libro: Libro):
         self.libro = libro
-        self.siguiente: Optional['NodoPila'] = None
+        self.siguiente: Optional["NodoPila"] = None
 
 class Pila:
     def __init__(self):
@@ -25,12 +25,12 @@ class Pila:
         self.tamanio -= 1
         return libro
 
-    def push(self, libro):
-        """Alias de apilar() para compatibilidad."""
+    def push(self, libro: Libro):
+        """Alias de apilar para compatibilidad."""
         self.apilar(libro)
-    
-    def pop(self):
-        """Alias de desapilar() para compatibilidad."""
+
+    def pop(self) -> Optional[Libro]:
+        """Alias de desapilar para compatibilidad."""
         return self.desapilar()
 
     def esta_vacia(self) -> bool:
@@ -40,13 +40,9 @@ class Pila:
         return self.tope.libro if self.tope else None
 
     def listar(self):
-        if self.esta_vacia():
-            print("Pila vacia")
-            return
+        elementos = []
         actual = self.tope
-        print(f"\nPila ({self.tamanio} elementos):")
-        print("=" * 80)
         while actual:
-            print(f"-> {actual.libro.titulo} ({actual.libro.isbn})")
+            elementos.append(actual.libro)
             actual = actual.siguiente
-        print("=" * 80)
+        return elementos
