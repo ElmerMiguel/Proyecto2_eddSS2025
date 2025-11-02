@@ -64,7 +64,8 @@ class ControladorCatalogo:
    
    
     def agregar_libro(self, libro: Libro, nombre_coleccion: str = "General") -> None:
-
+        """Agrega un libro a todas las estructuras de datos"""
+        
         if not libro.titulo or not libro.autor or not libro.genero:
             print("Error: Todos los campos son obligatorios.")
             return
@@ -87,11 +88,12 @@ class ControladorCatalogo:
         self.colecciones[nombre_coleccion].libros.insertar(libro)
         self.colecciones[nombre_coleccion].isbns_en_coleccion.add(libro.isbn)
 
-        # Insertar en estructuras globales
+        # ✅ INSERTAR EN TODAS LAS ESTRUCTURAS GLOBALES
         self.lista_secuencial.insertar(libro)
         self.arbol_titulos.insertar(libro)
         self.arbol_fechas.insertar(libro)
-        self.tabla_isbn.insertar(libro)
+        # FIX: REVERTIR - TablaHash solo necesita el libro
+        self.tabla_isbn.insertar(libro)  # ✅ CORRECTO: solo libro
         self.arbol_generos.insertar(libro)
         
         # Guardar en pila de operaciones

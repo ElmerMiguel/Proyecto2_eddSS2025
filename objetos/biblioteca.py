@@ -61,7 +61,9 @@ class Biblioteca:
         if not libro.biblioteca_destino:
             libro.biblioteca_destino = self.id
         libro.cambiar_estado("disponible")
+        
         self.catalogo_local.agregar_libro(libro)
+        
         self._actualizar_inventario(libro, 1)
         if registrar_rollback:
             operacion = {"tipo": "agregar", "libro": libro}
