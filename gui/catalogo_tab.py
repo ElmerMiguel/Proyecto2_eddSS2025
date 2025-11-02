@@ -221,6 +221,8 @@ class CatalogoTab:
                 continue
         sorted(generos)
 
+    
+    
     def _obtener_libros_filtrados(self):
         """
         Recopila, filtra (usando la estructura de datos apropiada) y ordena
@@ -236,7 +238,7 @@ class CatalogoTab:
             catalogo = biblioteca.catalogo_local
             try:
                 # Simulación de mostrar todos si no hay búsqueda
-                if not texto or criterio == "Rango de Fechas (B)":
+                if not texto and criterio != "Rango de Fechas (B)":
                     # Usar el método correcto de tu estructura: catalogo.lista_secuencial.mostrar_todos()
                     libros_en_catalogo = catalogo.lista_secuencial.mostrar_todos() if hasattr(catalogo, 'lista_secuencial') else []
                     for libro in libros_en_catalogo or []:
@@ -254,6 +256,29 @@ class CatalogoTab:
                         
                 elif criterio == "Género (B+)":
                     for libro in catalogo.buscar_por_genero(texto):
+                        libros.append((libro, biblioteca_id))
+
+                elif criterio == "Rango de Fechas (B)":
+                    if not auxiliar: continue
+                    try:
+                        inicio, fin = int(texto), int(auxiliar)
+                    except ValueError:
+                        continue
+                    # FIX: Convertir ListaLibros a lista iterable
+                    lista_resultado = catalogo.buscar_por_rango_fechas(inicio, fin)
+                    
+                    libros_encontrados = []
+                    if hasattr(lista_resultado, 'cabeza'): # Revisar por la cabeza de la lista
+                        # Si retorna ListaLibros, obtener la lista de libros
+                        actual = lista_resultado.cabeza
+                        while actual:
+                            libros_encontrados.append(actual.data)
+                            actual = actual.siguiente
+                    else:
+                        # Si retorna lista normal (fallback del método)
+                        libros_encontrados = lista_resultado
+                    
+                    for libro in libros_encontrados:
                         libros.append((libro, biblioteca_id))
 
             except Exception as e:
@@ -280,6 +305,8 @@ class CatalogoTab:
             libros = ordenados_con_bib
 
         return libros
+    
+    
 
     def aplicar_busqueda(self):
         """Botón de Buscar: Refresca el treeview con los criterios actuales."""
