@@ -14,6 +14,10 @@ class CatalogoTab:
         self.red_bibliotecas = red_bibliotecas
         self.catalog_tree = None
         
+        # referencias a comboboxes
+        self.combo_origen = None
+        self.combo_destino = None
+        
         # Variables de entrada
         self.titulo_var = tk.StringVar()
         self.autor_var = tk.StringVar()
@@ -25,25 +29,32 @@ class CatalogoTab:
         self.biblioteca_destino_var = tk.StringVar()
         self.prioridad_var = tk.StringVar(value="tiempo")
     
+    def configurar_comboboxes(self, combo_origen: ttk.Combobox, combo_destino: ttk.Combobox):
+        self.combo_origen = combo_origen
+        self.combo_destino = combo_destino
+        self.actualizar_comboboxes_origen_destino(combo_origen, combo_destino)
+    
+    def refrescar_datos(self):
+        self.actualizar_catalogo_tree()
+        if self.combo_origen and self.combo_destino:
+            self.actualizar_comboboxes_origen_destino(self.combo_origen, self.combo_destino)
+    
     def actualizar_catalogo_tree(self):
         """Actualiza el TreeView con libros del catálogo"""
-        for item in self.catalog_tree.get_children():
-            self.catalog_tree.delete(item)
+        if not self.catalog_tree:
+            return
+        
+        self.catalog_tree.delete(*self.catalog_tree.get_children())
         
         total_libros = 0
         for biblioteca_id, biblioteca in self.red_bibliotecas.bibliotecas.items():
             try:
-                libros = biblioteca.catalogo_local.lista_secuencial.mostrar_todos()
-                
-                if libros is None:
-                    libros = []
-                
+                libros = biblioteca.catalogo_local.lista_secuencial.mostrar_todos() or []
                 for libro in libros:
                     self.catalog_tree.insert("", "end", values=(
                         libro.titulo, libro.autor, libro.isbn, libro.estado, biblioteca_id
                     ))
                     total_libros += 1
-                    
             except Exception as e:
                 print(f"Error obteniendo libros de {biblioteca_id}: {e}")
         
@@ -52,13 +63,12 @@ class CatalogoTab:
     def actualizar_comboboxes_origen_destino(self, combo_origen, combo_destino):
         """Actualiza comboboxes de bibliotecas"""
         bibliotecas_ids = list(self.red_bibliotecas.bibliotecas.keys())
-        
-        if bibliotecas_ids:
-            combo_origen['values'] = bibliotecas_ids
-            combo_destino['values'] = bibliotecas_ids
-            
-            if self.biblioteca_origen_var.get() == "":
-                self.biblioteca_origen_var.set(bibliotecas_ids[0])
+
+        combo_origen['values'] = bibliotecas_ids
+        combo_destino['values'] = bibliotecas_ids
+
+        if bibliotecas_ids and not self.biblioteca_origen_var.get():
+            self.biblioteca_origen_var.set(bibliotecas_ids[0])
     
     def agregar_libro(self):
         """Agregar nuevo libro con todos los campos"""
@@ -67,18 +77,17 @@ class CatalogoTab:
                        self.isbn_var.get().strip()]):
                 messagebox.showerror("Error", "Título, autor e ISBN son obligatorios")
                 return
-            
+
             if not self.red_bibliotecas.bibliotecas:
-                messagebox.showerror("Error", "No hay bibliotecas. Carga bibliotecas primero.")
+                messagebox.showerror("Error", "No hay bibliotecas registradas.")
                 return
-            
+
             try:
-                anio = int(self.anio_var.get())
+                anio = int(self.anio_var.get() or "0")
             except ValueError:
                 messagebox.showerror("Error", "El año debe ser un número válido")
                 return
-            
-            # Crear libro
+
             libro = Libro(
                 titulo=self.titulo_var.get().strip(),
                 isbn=self.isbn_var.get().strip(),
@@ -86,32 +95,29 @@ class CatalogoTab:
                 anio=anio,
                 autor=self.autor_var.get().strip(),
                 estado=self.estado_var.get(),
-                biblioteca_origen=self.biblioteca_origen_var.get(),
-                biblioteca_destino=self.biblioteca_destino_var.get(),
+                biblioteca_origen=self.biblioteca_origen_var.get().strip(),
+                biblioteca_destino=self.biblioteca_destino_var.get().strip(),
                 prioridad=self.prioridad_var.get()
             )
-            
-            # Agregar a biblioteca
-            bib_origen = self.biblioteca_origen_var.get()
-            if bib_origen and bib_origen in self.red_bibliotecas.bibliotecas:
-                self.red_bibliotecas.bibliotecas[bib_origen].catalogo_local.agregar_libro(libro, "General")
-                
-                # Si hay destino diferente, programar transferencia
-                bib_destino = self.biblioteca_destino_var.get()
-                if bib_destino and bib_destino != bib_origen:
-                    self.red_bibliotecas.programar_transferencia(
-                        libro.isbn, bib_origen, bib_destino, self.prioridad_var.get()
-                    )
-            else:
-                primera_bib = next(iter(self.red_bibliotecas.bibliotecas.values()))
-                primera_bib.catalogo_local.agregar_libro(libro, "General")
-            
-            # Limpiar formulario
+
+            bib_origen_id = libro.biblioteca_origen or next(iter(self.red_bibliotecas.bibliotecas.keys()))
+            biblioteca_origen = self.red_bibliotecas.bibliotecas.get(bib_origen_id)
+            if not biblioteca_origen:
+                messagebox.showerror("Error", f"Biblioteca origen '{bib_origen_id}' no existe")
+                return
+
+            biblioteca_origen.agregar_libro_catalogo(libro)
+
+            bib_destino_id = libro.biblioteca_destino
+            if bib_destino_id and bib_destino_id != bib_origen_id:
+                self.red_bibliotecas.iniciar_transferencia(
+                    libro.isbn, bib_origen_id, bib_destino_id, libro.prioridad
+                )
+
             self._limpiar_formulario()
-            
+            self.refrescar_datos()
             messagebox.showinfo("Éxito", f"Libro '{libro.titulo}' agregado correctamente")
-            self.actualizar_catalogo_tree()
-            
+
         except Exception as e:
             messagebox.showerror("Error", f"Error al agregar libro: {e}")
     
@@ -134,7 +140,7 @@ class CatalogoTab:
             
             if eliminado:
                 messagebox.showinfo("Éxito", "Libro eliminado correctamente")
-                self.actualizar_catalogo_tree()
+                self.refrescar_datos()
             else:
                 messagebox.showerror("Error", "No se pudo eliminar el libro")
                 
@@ -144,15 +150,19 @@ class CatalogoTab:
     def rollback_operacion(self):
         """Deshacer última operación"""
         try:
-            if self.red_bibliotecas.bibliotecas:
-                primera_bib = next(iter(self.red_bibliotecas.bibliotecas.values()))
-                libro_restaurado = primera_bib.rollback_ultimo_ingreso()
-                
-                if libro_restaurado:
-                    messagebox.showinfo("Éxito", f"Operación deshecha: {libro_restaurado.titulo}")
-                    self.actualizar_catalogo_tree()
-                else:
-                    messagebox.showwarning("Advertencia", "No hay operaciones para deshacer")
+            if not self.red_bibliotecas.bibliotecas:
+                messagebox.showwarning("Advertencia", "No hay bibliotecas registradas")
+                return
+
+            bib_id = self.biblioteca_origen_var.get() or next(iter(self.red_bibliotecas.bibliotecas.keys()))
+            biblioteca = self.red_bibliotecas.bibliotecas[bib_id]
+            libro_restaurado = biblioteca.rollback_ultimo_ingreso()
+
+            if libro_restaurado:
+                messagebox.showinfo("Éxito", f"Operación deshecha: {libro_restaurado.titulo}")
+                self.refrescar_datos()
+            else:
+                messagebox.showwarning("Advertencia", "No hay operaciones para deshacer")
         except Exception as e:
             messagebox.showerror("Error", f"Error en rollback: {e}")
     
@@ -178,52 +188,41 @@ def crear_catalogo_tab(notebook, red_bibliotecas):
     tab_catalogo.grid_columnconfigure((0, 1), weight=1)
     tab_catalogo.grid_rowconfigure(0, weight=1)
     
-    # Crear controlador
     ctrl = CatalogoTab(red_bibliotecas)
     
-    # === FRAME CRUD ===
     crud_frame = ttk.Frame(tab_catalogo, style='Sky.TFrame', padding=15)
     crud_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
     
     tk.Label(crud_frame, text="✏️ REGISTRO DE LIBRO", 
              font=FONT_TITLE_MEDIUM, fg=TITLE_COLOR, bg=FILTER_BG).pack(pady=(0, 15))
     
-    # Título
     tk.Label(crud_frame, text="Título:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
     ttk.Entry(crud_frame, textvariable=ctrl.titulo_var, width=40).pack(fill='x')
     
-    # Autor
     tk.Label(crud_frame, text="Autor:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
     ttk.Entry(crud_frame, textvariable=ctrl.autor_var, width=40).pack(fill='x')
     
-    # ISBN
     tk.Label(crud_frame, text="ISBN:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
     ttk.Entry(crud_frame, textvariable=ctrl.isbn_var, width=20).pack(fill='x')
     
-    # Año
     tk.Label(crud_frame, text="Año de publicación:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
     ttk.Entry(crud_frame, textvariable=ctrl.anio_var, width=10).pack(fill='x')
     
-    # Género
     tk.Label(crud_frame, text="Género:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
     ttk.Entry(crud_frame, textvariable=ctrl.genero_var, width=20).pack(fill='x')
     
-    # Estado
     tk.Label(crud_frame, text="Estado:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
     ttk.Combobox(crud_frame, textvariable=ctrl.estado_var, 
                  values=["disponible", "prestado", "en_transito", "agotado"]).pack(fill='x')
     
-    # Biblioteca Origen
     tk.Label(crud_frame, text="Biblioteca Origen:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
     biblioteca_origen_combo = ttk.Combobox(crud_frame, textvariable=ctrl.biblioteca_origen_var)
     biblioteca_origen_combo.pack(fill='x')
     
-    # Biblioteca Destino
     tk.Label(crud_frame, text="Biblioteca Destino:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
     biblioteca_destino_combo = ttk.Combobox(crud_frame, textvariable=ctrl.biblioteca_destino_var)
     biblioteca_destino_combo.pack(fill='x')
     
-    # Prioridad
     tk.Label(crud_frame, text="Prioridad de Envío:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
     prioridad_frame = ttk.Frame(crud_frame)
     prioridad_frame.pack(fill='x', pady=2)
@@ -232,19 +231,16 @@ def crear_catalogo_tab(notebook, red_bibliotecas):
     ttk.Radiobutton(prioridad_frame, text="Costo", 
                     variable=ctrl.prioridad_var, value="costo").pack(side='left', padx=10)
     
-    # Botones CRUD
     ttk.Button(crud_frame, text="➕ Agregar Libro", 
                command=ctrl.agregar_libro).pack(pady=(20, 5), fill='x')
     ttk.Button(crud_frame, text="🗑️ Eliminar Libro", 
                command=ctrl.eliminar_libro).pack(pady=5, fill='x')
     
-    # Control de Pilas
     tk.Label(crud_frame, text="🔄 CONTROL DE PILAS", 
              font=FONT_TITLE_MEDIUM, fg=TITLE_COLOR, bg=FILTER_BG).pack(pady=(20, 10))
     ttk.Button(crud_frame, text="↩️ Deshacer Última Operación", 
                command=ctrl.rollback_operacion).pack(pady=5, fill='x')
     
-    # === FRAME LISTADO ===
     listado_frame = ttk.Frame(tab_catalogo, style='Sky.TFrame', padding=15)
     listado_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
     listado_frame.grid_rowconfigure(2, weight=1)
@@ -253,7 +249,7 @@ def crear_catalogo_tab(notebook, red_bibliotecas):
              font=FONT_TITLE_MEDIUM, fg=TITLE_COLOR, bg=FILTER_BG).pack(pady=(0, 10))
     
     ttk.Button(listado_frame, text="🔄 Actualizar Catálogo", 
-               command=ctrl.actualizar_catalogo_tree).pack(fill='x', pady=5)
+               command=ctrl.refrescar_datos).pack(fill='x', pady=5)
     
     tk.Label(listado_frame, text="CATÁLOGO COMPLETO:", 
              font=FONT_TITLE_SMALL, bg=FILTER_BG).pack(anchor='w', pady=(10, 0))
@@ -268,7 +264,6 @@ def crear_catalogo_tab(notebook, red_bibliotecas):
     ctrl.catalog_tree.heading("Biblioteca", text="Biblioteca")
     ctrl.catalog_tree.pack(fill='both', expand=True, pady=(5, 0))
     
-    # Actualizar comboboxes
-    ctrl.actualizar_comboboxes_origen_destino(biblioteca_origen_combo, biblioteca_destino_combo)
+    ctrl.configurar_comboboxes(biblioteca_origen_combo, biblioteca_destino_combo)
     
-    return tab_catalogo
+    return tab_catalogo, ctrl

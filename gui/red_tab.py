@@ -31,27 +31,37 @@ class RedTab:
     def agregar_biblioteca(self):
         """Agregar nueva biblioteca"""
         try:
-            nombre = self.bib_nombre_var.get()
+            nombre = self.bib_nombre_var.get().strip()
             if not nombre:
                 messagebox.showerror("Error", "El nombre de la biblioteca es obligatorio")
                 return
             
-            # Generar ID único
-            bib_id = f"BIB{len(self.red_bibliotecas.bibliotecas) + 1:03d}"
+            ubicacion = self.bib_ubicacion_var.get().strip() or "Sin ubicacion"
+            try:
+                t_ingreso = int(self.bib_tiempo_ingreso_var.get() or 10)
+                t_traspaso = int(self.bib_tiempo_traspaso_var.get() or 5)
+                intervalo = int(self.bib_intervalo_despacho_var.get() or 3)
+            except ValueError:
+                messagebox.showerror("Error", "Los tiempos deben ser numeros enteros")
+                return
+
+            if any(bib.nombre.lower() == nombre.lower() for bib in self.red_bibliotecas.bibliotecas.values()):
+                messagebox.showerror("Error", "Ya existe una biblioteca con ese nombre")
+                return
             
-            biblioteca = Biblioteca(
-                id_biblioteca=bib_id,
+            # Generar ID único
+            nuevo_id = f"BIB{len(self.red_bibliotecas.bibliotecas) + 1:03d}"
+            
+            self.red_bibliotecas.agregar_biblioteca(
+                id_bib=nuevo_id,
                 nombre=nombre,
-                ubicacion=self.bib_ubicacion_var.get() or "Sin ubicación",
-                tiempo_ingreso=int(self.bib_tiempo_ingreso_var.get()) if self.bib_tiempo_ingreso_var.get() else 10,
-                tiempo_traspaso=int(self.bib_tiempo_traspaso_var.get()) if self.bib_tiempo_traspaso_var.get() else 5,
-                intervalo_despacho=int(self.bib_intervalo_despacho_var.get()) if self.bib_intervalo_despacho_var.get() else 3
+                ubicacion=ubicacion,
+                t_ingreso=t_ingreso,
+                t_traspaso=t_traspaso,
+                intervalo=intervalo
             )
             
-            self.red_bibliotecas.bibliotecas[bib_id] = biblioteca
-            self.red_bibliotecas.grafo.agregar_nodo(bib_id, nombre)
-            
-            messagebox.showinfo("Éxito", f"Biblioteca '{nombre}' creada con ID: {bib_id}")
+            messagebox.showinfo("Éxito", f"Biblioteca '{nombre}' creada con ID: {nuevo_id}")
             
             # Limpiar campos
             self._limpiar_formulario_bib()
@@ -59,6 +69,8 @@ class RedTab:
             # Callback para actualizar UI (se asigna desde gui_app.py)
             if hasattr(self, 'callback_actualizar'):
                 self.callback_actualizar()
+            if hasattr(self, "callback_dibujar"):
+                self.callback_dibujar()
             
         except Exception as e:
             messagebox.showerror("Error", f"Error al crear biblioteca: {e}")
@@ -66,43 +78,59 @@ class RedTab:
     def agregar_conexion(self):
         """Agregar conexión entre bibliotecas"""
         try:
-            origen = self.origen_var.get()
-            destino = self.destino_var.get()
-            tiempo = self.tiempo_conexion_var.get()
-            costo = self.costo_conexion_var.get()
-            
-            if not all([origen, destino, tiempo, costo]):
-                messagebox.showerror("Error", "Todos los campos son obligatorios")
+            origen = self.origen_var.get().strip()
+            destino = self.destino_var.get().strip()
+
+            if not origen or not destino:
+                messagebox.showerror("Error", "Debe seleccionar origen y destino")
+                return
+            if origen == destino:
+                messagebox.showerror("Error", "Origen y destino deben ser diferentes")
+                return
+
+            try:
+                tiempo = int(self.tiempo_conexion_var.get())
+                costo = float(self.costo_conexion_var.get())
+            except ValueError:
+                messagebox.showerror("Error", "Tiempo y costo deben ser numericos")
                 return
             
-            self.red_bibliotecas.grafo.agregar_arista(
+            creada = self.red_bibliotecas.agregar_conexion(
                 origen=origen,
                 destino=destino,
-                tiempo=int(tiempo),
-                costo=float(costo),
+                tiempo=tiempo,
+                costo=costo,
                 bidireccional=self.bidireccional_var.get()
             )
             
-            messagebox.showinfo("Éxito", f"Conexión creada: {origen} -> {destino}")
-            
-            # Limpiar campos
-            self.tiempo_conexion_var.set("")
-            self.costo_conexion_var.set("")
-            
-            # Callback para dibujar grafo
-            if hasattr(self, 'callback_dibujar'):
-                self.callback_dibujar()
+            if creada:
+                messagebox.showinfo("Éxito", f"Conexión creada: {origen} -> {destino}")
+                
+                # Limpiar campos
+                self.tiempo_conexion_var.set("")
+                self.costo_conexion_var.set("")
+                
+                # Callback para dibujar grafo
+                if hasattr(self, 'callback_dibujar'):
+                    self.callback_dibujar()
+            else:
+                messagebox.showwarning("Advertencia", "No se pudo crear la conexion")
             
         except Exception as e:
             messagebox.showerror("Error", f"Error al crear conexión: {e}")
     
     def actualizar_comboboxes_conexiones(self, origen_combo, destino_combo):
         """Actualiza comboboxes de bibliotecas para conexiones"""
-        bibliotecas_ids = list(self.red_bibliotecas.bibliotecas.keys())
+        ids = list(self.red_bibliotecas.bibliotecas.keys())
         
-        if bibliotecas_ids:
-            origen_combo['values'] = bibliotecas_ids
-            destino_combo['values'] = bibliotecas_ids
+        origen_combo['values'] = ids
+        destino_combo['values'] = ids
+        
+        if ids:
+            if not self.origen_var.get():
+                self.origen_var.set(ids[0])
+            if not self.destino_var.get():
+                self.destino_var.set(ids[-1])
     
     def dibujar_grafo(self):
         """Dibujar grafo en el canvas"""
@@ -176,10 +204,6 @@ def crear_red_tab(notebook, red_bibliotecas, callback_actualizar=None, callback_
     
     # Crear controlador
     ctrl = RedTab(red_bibliotecas)
-    if callback_actualizar:
-        ctrl.callback_actualizar = callback_actualizar
-    if callback_dibujar:
-        ctrl.callback_dibujar = callback_dibujar
     
     # === FRAME CONFIGURACIÓN ===
     config_frame_red = ttk.Frame(tab_red, style='Sky.TFrame', padding=15)
@@ -251,5 +275,12 @@ def crear_red_tab(notebook, red_bibliotecas, callback_actualizar=None, callback_
     
     # Actualizar comboboxes y dibujar
     ctrl.actualizar_comboboxes_conexiones(origen_combo, destino_combo)
+
+    def refrescar_conexiones():
+        ctrl.actualizar_comboboxes_conexiones(origen_combo, destino_combo)
+        ctrl.dibujar_grafo()
+
+    ctrl.callback_actualizar = refrescar_conexiones
+    ctrl.callback_dibujar = ctrl.dibujar_grafo
     
     return tab_red, ctrl
