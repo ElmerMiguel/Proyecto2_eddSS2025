@@ -333,6 +333,20 @@ def crear_busqueda_rutas_tab(notebook, red_bibliotecas):
                command=ctrl.calcular_ruta_optima).grid(row=current_row, column=0, columnspan=2, pady=(15, 5), sticky='ew', padx=5)
     current_row += 1
     
+    
+    
+    
+
+    ttk.Button(rutas_frame, text="🔄 Refrescar Red", 
+            command=ctrl.refrescar_datos).grid(row=current_row, column=0, columnspan=2, pady=5, sticky='ew', padx=5)
+    current_row += 1
+
+    # CONTINÚA CON:
+    ctrl.ruta_resultado_label = tk.Label(rutas_frame, text="Ruta: [No calculada]", 
+                                        bg=FILTER_BG, fg=ACCENT_COLOR)
+    
+    
+    
     ctrl.ruta_resultado_label = tk.Label(rutas_frame, text="Ruta: [No calculada]", 
                                          bg=FILTER_BG, fg=ACCENT_COLOR)
     ctrl.ruta_resultado_label.grid(row=current_row, column=0, columnspan=2, sticky='w', padx=5, pady=5)
