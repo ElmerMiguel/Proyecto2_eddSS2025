@@ -56,6 +56,7 @@ class Biblioteca:
             self.inventario.decrementar(self.id, genero, abs(delta))
 
     def agregar_libro_catalogo(self, libro: Libro, registrar_rollback: bool = True, contar_ingreso: bool = True) -> None:
+        """Agrega un libro al catálogo local y registra para rollback si es necesario."""
         libro.biblioteca_origen = libro.biblioteca_origen or self.id
         if not libro.biblioteca_destino:
             libro.biblioteca_destino = self.id
@@ -63,7 +64,8 @@ class Biblioteca:
         self.catalogo_local.agregar_libro(libro)
         self._actualizar_inventario(libro, 1)
         if registrar_rollback:
-            self.pila_rollback.apilar(libro)
+            operacion = {"tipo": "agregar", "libro": libro}
+            self.pila_rollback.apilar(operacion)
         if contar_ingreso:
             self.estadisticas["libros_ingresados"] += 1
 
@@ -153,25 +155,38 @@ class Biblioteca:
         return self.catalogo_local.buscar_por_isbn(isbn)
 
     def eliminar_libro_catalogo(self, isbn: str) -> bool:
-        """Elimina un libro del catalogo local."""
+        """Elimina un libro del catalogo local y registra para rollback."""
         libro = self.obtener_libro_por_isbn(isbn)
         if libro:
+            # Registrar eliminación para rollback
+            operacion = {"tipo": "eliminar", "libro": libro}
+            self.pila_rollback.apilar(operacion)
+            
             self.catalogo_local.eliminar_libro(isbn)
             self._actualizar_inventario(libro, -1)
             return True
         return False
 
-    def rollback_ultimo_ingreso(self) -> Optional[Libro]:
-        """Deshace el ultimo libro ingresado al catalogo."""
+    def rollback_ultima_operacion(self) -> Optional[str]:
+        """Deshace la última operación (agregar O eliminar)."""
         if self.pila_rollback.esta_vacia():
-            print("No hay operaciones para deshacer")
-            return None
+            return "No hay operaciones para deshacer"
         
-        libro = self.pila_rollback.desapilar()
-        self.catalogo_local.eliminar_libro(libro.isbn)
-        self._actualizar_inventario(libro, -1)
-        print(f"Se deshizo el ingreso de '{libro.titulo}'")
-        return libro
+        operacion = self.pila_rollback.desapilar()
+        
+        if operacion["tipo"] == "agregar":
+            # Deshacer agregación = eliminar
+            libro = operacion["libro"]
+            self.catalogo_local.eliminar_libro(libro.isbn)
+            self._actualizar_inventario(libro, -1)
+            return f"Se deshizo la agregación de '{libro.titulo}'"
+            
+        elif operacion["tipo"] == "eliminar":
+            # Deshacer eliminación = volver a agregar
+            libro = operacion["libro"]
+            self.catalogo_local.agregar_libro(libro)
+            self._actualizar_inventario(libro, 1)
+            return f"Se deshizo la eliminación de '{libro.titulo}'"
 
     def ordenar_catalogo(self, metodo: str = "quick_sort", clave: str = "titulo") -> None:
         """

@@ -186,13 +186,13 @@ class CatalogoTab:
 
             bib_id = self.biblioteca_origen_var.get() or next(iter(self.red_bibliotecas.bibliotecas.keys()))
             biblioteca = self.red_bibliotecas.bibliotecas[bib_id]
-            libro_restaurado = biblioteca.rollback_ultimo_ingreso()
+            resultado = biblioteca.rollback_ultima_operacion()  # Cambiar de rollback_ultimo_ingreso()
 
-            if libro_restaurado:
-                messagebox.showinfo("Éxito", f"Operación deshecha: {libro_restaurado.titulo}")
+            if resultado and not resultado.startswith("No hay"):
+                messagebox.showinfo("Éxito", resultado)
                 self.refrescar_datos()
             else:
-                messagebox.showwarning("Advertencia", "No hay operaciones para deshacer")
+                messagebox.showwarning("Advertencia", resultado or "No hay operaciones para deshacer")
         except Exception as e:
             messagebox.showerror("Error", f"Error en rollback: {e}")
     
