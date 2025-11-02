@@ -14,6 +14,7 @@ class BusquedaTab:
     def __init__(self, red_bibliotecas):
         self.red_bibliotecas = red_bibliotecas
         self.ruta_resultado_label = None
+        self.ruta_canvas = None # Nuevo atributo para el Canvas
         
         # Variables de entrada de Ruta
         self.ruta_origen_var = tk.StringVar()
@@ -43,9 +44,11 @@ class BusquedaTab:
         """Actualiza comboboxes después de cambios en red_bibliotecas"""
         if self.ruta_origen_combo and self.ruta_destino_combo:
             self.actualizar_comboboxes_rutas(self.ruta_origen_combo, self.ruta_destino_combo)
+        if self.ruta_canvas:
+            self.dibujar_grafo_con_ruta(self.ruta_canvas) # Dibujar grafo inicial al refrescar
 
     def calcular_ruta_optima(self):
-        """Calcular ruta óptima entre bibliotecas"""
+        """Calcular ruta óptima entre bibliotecas CON VISUALIZACIÓN"""
         origen = self.ruta_origen_var.get()
         destino = self.ruta_destino_var.get()
         
@@ -58,7 +61,7 @@ class BusquedaTab:
             return
         
         try:
-            # Asumiendo que self.red_bibliotecas.grafo existe y tiene los métodos dijkstra_tiempo/dijkstra_costo
+            # Calcular ruta óptima
             if self.criterio_var.get() == "tiempo":
                 peso, ruta = self.red_bibliotecas.grafo.dijkstra_tiempo(origen, destino)
             else:
@@ -72,11 +75,94 @@ class BusquedaTab:
                 # Actualizar etiqueta
                 if self.ruta_resultado_label:
                     self.ruta_resultado_label.config(text=f"Ruta: {ruta_texto} | Peso: {peso}")
+                
+                # ✅ NUEVA FUNCIONALIDAD: Dibujar ruta en canvas
+                if hasattr(self, 'ruta_canvas') and self.ruta_canvas:
+                    self.dibujar_grafo_con_ruta(self.ruta_canvas, ruta)
             else:
                 messagebox.showerror("Error", "No se encontró ruta entre las bibliotecas")
+                # Dibujar grafo sin ruta destacada
+                if hasattr(self, 'ruta_canvas') and self.ruta_canvas:
+                    self.dibujar_grafo_con_ruta(self.ruta_canvas)
                 
         except Exception as e:
             messagebox.showerror("Error", f"Error calculando ruta: {e}")
+
+    def dibujar_grafo_con_ruta(self, canvas, ruta_destacada=None):
+        """Dibuja el grafo de bibliotecas con ruta destacada"""
+        canvas.delete("all")  # Limpiar canvas
+        
+        if not self.red_bibliotecas.bibliotecas:
+            canvas.create_text(200, 100, text="No hay bibliotecas cargadas", 
+                               fill="red", font=("Arial", 14))
+            return
+        
+        # Configurar posiciones de nodos (distribución circular)
+        bibliotecas = list(self.red_bibliotecas.bibliotecas.keys())
+        num_bibliotecas = len(bibliotecas)
+        center_x, center_y = 300, 200
+        radio = 120
+        
+        posiciones = {}
+        for i, bib_id in enumerate(bibliotecas):
+            angulo = 2 * 3.14159 * i / num_bibliotecas
+            x = center_x + radio * (0.5 + 0.5 * (i % 2)) * (1 if i % 4 < 2 else -1)
+            y = center_y + radio * (0.5 + 0.5 * ((i // 2) % 2)) * (1 if i % 8 < 4 else -1)
+            posiciones[bib_id] = (x, y)
+        
+        # Dibujar aristas (conexiones)
+        grafo = self.red_bibliotecas.grafo
+        for origen in grafo.nodos:
+            for arista in grafo.nodos[origen]:
+                destino = arista.destino
+                if origen in posiciones and destino in posiciones:
+                    x1, y1 = posiciones[origen]
+                    x2, y2 = posiciones[destino]
+                    
+                    # Determinar color de la arista
+                    color_arista = "blue"
+                    grosor = 2
+                    
+                    # Destacar ruta óptima
+                    if ruta_destacada:
+                        for j in range(len(ruta_destacada) - 1):
+                            if ((ruta_destacada[j] == origen and ruta_destacada[j+1] == destino) or
+                                (ruta_destacada[j] == destino and ruta_destacada[j+1] == origen)):
+                                color_arista = "red"
+                                grosor = 4
+                                break
+                        
+                    canvas.create_line(x1, y1, x2, y2, fill=color_arista, width=grosor)
+                    
+                    # Etiqueta de peso en la arista
+                    mid_x, mid_y = (x1 + x2) // 2, (y1 + y2) // 2
+                    peso_texto = f"T:{arista.tiempo} C:{arista.costo:.1f}"
+                    canvas.create_text(mid_x, mid_y, text=peso_texto, 
+                                    fill="black", font=("Arial", 8))
+        
+        # Dibujar nodos (bibliotecas)
+        for bib_id, (x, y) in posiciones.items():
+            # Determinar color del nodo
+            color_nodo = "lightblue"
+            if ruta_destacada:
+                if bib_id == ruta_destacada[0]:  # Origen
+                    color_nodo = "green"
+                elif bib_id == ruta_destacada[-1]:  # Destino
+                    color_nodo = "orange"
+                elif bib_id in ruta_destacada:  # Nodo intermedio
+                    color_nodo = "yellow"
+            
+            # Dibujar círculo del nodo
+            canvas.create_oval(x-20, y-20, x+20, y+20, 
+                             fill=color_nodo, outline="black", width=2)
+            
+            # Etiqueta del nodo
+            canvas.create_text(x, y, text=bib_id, fill="black", font=("Arial", 10, "bold"))
+        
+        # Leyenda
+        canvas.create_text(50, 30, text="🟢 Origen", anchor="w", fill="green", font=("Arial", 10))
+        canvas.create_text(50, 50, text="🟠 Destino", anchor="w", fill="orange", font=("Arial", 10))
+        canvas.create_text(50, 70, text="🔴 Ruta Óptima", anchor="w", fill="red", font=("Arial", 10))
 
 
 def crear_busqueda_rutas_tab(notebook, red_bibliotecas):
@@ -151,7 +237,13 @@ def crear_busqueda_rutas_tab(notebook, red_bibliotecas):
     ctrl.ruta_origen_combo = ruta_origen_combo
     ctrl.ruta_destino_combo = ruta_destino_combo
 
+    # Almacenar canvas en controlador
+    ctrl.ruta_canvas = ruta_canvas
+
     # Actualizar comboboxes de ruta
     ctrl.actualizar_comboboxes_rutas(ruta_origen_combo, ruta_destino_combo)
+
+    # Dibujar grafo inicial
+    ctrl.dibujar_grafo_con_ruta(ruta_canvas)
     
     return tab_busqueda_rutas, ctrl
