@@ -10,6 +10,7 @@ class Arista:
 class Grafo:
     def __init__(self):
         self.nodos: Dict[str, List[Arista]] = {}
+        self.etiquetas: Dict[str, str] = {} # Inicialización de etiquetas
 
     def agregar_nodo(self, nombre: str, etiqueta: str = None):
         """
@@ -19,11 +20,8 @@ class Grafo:
         """
         if nombre not in self.nodos:
             self.nodos[nombre] = []
-            # Guardar etiqueta para exportación DOT
-            if etiqueta and not hasattr(self, 'etiquetas'):
-                self.etiquetas = {}
-            if etiqueta:
-                self.etiquetas[nombre] = etiqueta
+        if etiqueta:
+            self.etiquetas[nombre] = etiqueta # Almacenar etiqueta
 
     def agregar_arista(self, origen: str, destino: str, tiempo: int, costo: float, bidireccional: bool = True):
         self.agregar_nodo(origen)
@@ -41,6 +39,10 @@ class Grafo:
             return False
         
         del self.nodos[nombre]
+        
+        # Eliminar etiqueta si existe
+        if nombre in self.etiquetas:
+            del self.etiquetas[nombre]
         
         for nodo_origen in self.nodos:
             self.nodos[nodo_origen] = [
@@ -66,27 +68,31 @@ class Grafo:
             aristas_destino = self.nodos[destino]
             self.nodos[destino] = [a for a in aristas_destino if a.destino != origen]
         
+        # Se asume que el grafo es dirigido en el almacenamiento, por lo que basta con revisar el origen.
         return len(self.nodos[origen]) < cantidad_inicial
 
     def dijkstra_tiempo(self, origen: str, destino: str) -> Tuple[int, List[str]]:
-        return self._dijkstra(origen, destino, usar_tiempo=True)
+        # La distancia es float, se convierte a int al final si la ruta es válida
+        distancia, ruta = self._dijkstra(origen, destino, usar_tiempo=True)
+        return (int(distancia), ruta) if ruta else (math.inf, [])
 
     def dijkstra_costo(self, origen: str, destino: str) -> Tuple[float, List[str]]:
         return self._dijkstra(origen, destino, usar_tiempo=False)
 
-    def _dijkstra(self, origen: str, destino: str, usar_tiempo: bool):
+    def _dijkstra(self, origen: str, destino: str, usar_tiempo: bool) -> Tuple[float, List[str]]:
         if origen not in self.nodos or destino not in self.nodos:
             return (math.inf, [])
 
-        distancias = {nodo: math.inf for nodo in self.nodos}
-        previos = {nodo: None for nodo in self.nodos}
-        distancias[origen] = 0
+        distancias: Dict[str, float] = {nodo: math.inf for nodo in self.nodos}
+        previos: Dict[str, Optional[str]] = {nodo: None for nodo in self.nodos}
+        distancias[origen] = 0.0
         visitados = set()
 
         while len(visitados) < len(self.nodos):
             nodo_actual = None
             distancia_minima = math.inf
 
+            # Encontrar el nodo no visitado con la menor distancia
             for nodo in self.nodos:
                 if nodo not in visitados and distancias[nodo] < distancia_minima:
                     distancia_minima = distancias[nodo]
@@ -97,6 +103,7 @@ class Grafo:
 
             visitados.add(nodo_actual)
 
+            # Relajación de aristas
             for arista in self.nodos[nodo_actual]:
                 peso = arista.tiempo if usar_tiempo else arista.costo
                 distancia = distancias[nodo_actual] + peso
@@ -105,7 +112,8 @@ class Grafo:
                     distancias[arista.destino] = distancia
                     previos[arista.destino] = nodo_actual
 
-        camino = []
+        # Reconstruir el camino
+        camino: List[str] = []
         nodo = destino
         while nodo is not None:
             camino.insert(0, nodo)
@@ -124,7 +132,7 @@ class Grafo:
         usar_tiempo = (criterio == "tiempo")
         rutas = []
         
-        rutas_prohibidas = set()
+        rutas_prohibidas: set[Tuple[str, ...]] = set()
         
         for _ in range(3):
             distancia, camino = self._dijkstra_con_prohibiciones(
@@ -140,16 +148,16 @@ class Grafo:
         return rutas
 
     def _dijkstra_con_prohibiciones(self, origen: str, destino: str, usar_tiempo: bool, 
-                                     rutas_prohibidas: set) -> Tuple[float, List[str]]:
+                                     rutas_prohibidas: set[Tuple[str, ...]]) -> Tuple[float, List[str]]:
         """
         Dijkstra modificado que evita rutas ya encontradas.
         """
         if origen not in self.nodos or destino not in self.nodos:
             return (math.inf, [])
 
-        distancias = {nodo: math.inf for nodo in self.nodos}
-        previos = {nodo: None for nodo in self.nodos}
-        distancias[origen] = 0
+        distancias: Dict[str, float] = {nodo: math.inf for nodo in self.nodos}
+        previos: Dict[str, Optional[str]] = {nodo: None for nodo in self.nodos}
+        distancias[origen] = 0.0
         visitados = set()
 
         while len(visitados) < len(self.nodos):
@@ -161,8 +169,20 @@ class Grafo:
                     distancia_minima = distancias[nodo]
                     nodo_actual = nodo
 
-            if nodo_actual is None or nodo_actual == destino:
+            if nodo_actual is None:
                 break
+            
+            # Si el nodo actual es el destino, verificamos si el camino es una ruta prohibida
+            if nodo_actual == destino:
+                camino_temporal = []
+                nodo = destino
+                while nodo is not None:
+                    camino_temporal.insert(0, nodo)
+                    nodo = previos[nodo]
+                
+                if tuple(camino_temporal) in rutas_prohibidas:
+                    visitados.add(nodo_actual) # Marcar como visitado y seguir buscando
+                    continue
 
             visitados.add(nodo_actual)
 
@@ -174,7 +194,7 @@ class Grafo:
                     distancias[arista.destino] = distancia
                     previos[arista.destino] = nodo_actual
 
-        camino = []
+        camino: List[str] = []
         nodo = destino
         while nodo is not None:
             camino.insert(0, nodo)
@@ -183,31 +203,59 @@ class Grafo:
         if not camino or camino[0] != origen:
             return (math.inf, [])
         
+        # Última verificación para asegurar que el camino encontrado no sea una ruta prohibida
         if tuple(camino) in rutas_prohibidas:
-            return (math.inf, [])
+             return (math.inf, [])
 
         return (distancias[destino], camino)
+
+    def obtener_pesos_arista(self, origen: str, destino: str) -> Optional[Tuple[int, float]]:
+        """Devuelve (tiempo, costo) si existe la arista origen→destino."""
+        if origen not in self.nodos:
+            return None
+        for arista in self.nodos[origen]:
+            if arista.destino == destino:
+                return arista.tiempo, arista.costo
+        return None
+
+    def calcular_tiempo_ruta(self, ruta: List[str]) -> float:
+        """Suma tiempos en segundos para la ruta dada."""
+        if not ruta or len(ruta) < 2:
+            return 0.0
+        total = 0.0
+        for i in range(len(ruta) - 1):
+            pesos = self.obtener_pesos_arista(ruta[i], ruta[i + 1])
+            if not pesos:
+                return math.inf
+            total += pesos[0]
+        return total
+
+    def calcular_costo_ruta(self, ruta: List[str]) -> float:
+        """Suma costos monetarios para la ruta dada."""
+        if not ruta or len(ruta) < 2:
+            return 0.0
+        total = 0.0
+        for i in range(len(ruta) - 1):
+            pesos = self.obtener_pesos_arista(ruta[i], ruta[i + 1])
+            if not pesos:
+                return math.inf
+            total += pesos[1]
+        return total
 
     def calcular_eta(self, origen: str, destino: str, prioridad: str = "tiempo") -> int:
         """
         Calcula tiempo estimado de llegada (ETA) en segundos.
         """
         if prioridad == "tiempo":
-            tiempo_total, _ = self.dijkstra_tiempo(origen, destino)
-            return int(tiempo_total) if tiempo_total != math.inf else 0
+            tiempo_total, ruta = self.dijkstra_tiempo(origen, destino)
+            # dijkstra_tiempo ya retorna el tiempo total como int si es posible
+            return int(tiempo_total) if ruta and tiempo_total != math.inf else 0
         else:
-            costo_total, camino = self.dijkstra_costo(origen, destino)
-            if costo_total == math.inf:
+            costo_total, ruta = self.dijkstra_costo(origen, destino)
+            if not ruta or costo_total == math.inf:
                 return 0
-            
-            tiempo_total = 0
-            for i in range(len(camino) - 1):
-                for arista in self.nodos[camino[i]]:
-                    if arista.destino == camino[i + 1]:
-                        tiempo_total += arista.tiempo
-                        break
-            
-            return tiempo_total
+            tiempo_total = self.calcular_tiempo_ruta(ruta)
+            return int(tiempo_total) if tiempo_total != math.inf else 0
 
     def listar_nodos(self) -> List[str]:
         """Retorna lista de IDs de nodos (bibliotecas)"""
@@ -258,7 +306,7 @@ class Grafo:
                 "costo_promedio": 0
             }
         
-        max_conexiones = 0
+        max_conexiones = -1
         nodo_mas_conectado = None
         
         suma_tiempos = 0
@@ -266,6 +314,7 @@ class Grafo:
         
         for nodo, aristas in self.nodos.items():
             conexiones = len(aristas)
+            # Solo consideramos las aristas salientes para 'max_conexiones'
             if conexiones > max_conexiones:
                 max_conexiones = conexiones
                 nodo_mas_conectado = nodo
@@ -278,7 +327,7 @@ class Grafo:
             "nodos": total_nodos,
             "aristas": total_aristas,
             "nodo_mas_conectado": nodo_mas_conectado,
-            "max_conexiones": max_conexiones,
+            "max_conexiones": max_conexiones if max_conexiones > -1 else 0,
             "tiempo_promedio": suma_tiempos / total_aristas if total_aristas > 0 else 0,
             "costo_promedio": suma_costos / total_aristas if total_aristas > 0 else 0
         }
@@ -301,39 +350,28 @@ class Grafo:
     def exportar_dot(self, archivo: str):
         """
         Exporta el grafo a formato DOT para visualizacion con Graphviz.
+        Aplica los estilos mejorados de la revisión.
         """
         with open(archivo, "w", encoding="utf-8") as out:
-            out.write("digraph RedBibliotecas {\n")
-            out.write("    rankdir=LR;\n")
-            out.write("    node [shape=circle, style=filled, fillcolor=lightblue];\n")
-            out.write("    edge [fontsize=10];\n\n")
-
-            aristas_procesadas = set()
-
+            out.write("digraph RedBibliotecas {\n    rankdir=LR;\n")
+            out.write("    node [shape=ellipse, style=filled, fillcolor=\"#cfe2ff\"];\n")
+            out.write("    edge [color=\"#4a90e2\", fontcolor=\"#1f3d7a\", fontsize=10];\n\n")
+            
+            # Escribir nodos con etiquetas
+            for nodo in self.nodos:
+                etiqueta = self.etiquetas.get(nodo, nodo)
+                out.write(f'    "{nodo}" [label="{etiqueta}\\n({nodo})"];\n')
+            
+            out.write("\n")
+            
+            # Escribir aristas (solo dirigidas, sin lógica bidireccional compleja)
             for origen, aristas in self.nodos.items():
                 for arista in aristas:
-                    par = (origen, arista.destino)
-                    par_inverso = (arista.destino, origen)
-                    
-                    if par in aristas_procesadas:
-                        continue
-                    
-                    es_bidireccional = False
-                    if arista.destino in self.nodos:
-                        for arista_vuelta in self.nodos[arista.destino]:
-                            if arista_vuelta.destino == origen:
-                                es_bidireccional = True
-                                break
-                    
-                    flecha = " [dir=both]" if es_bidireccional else ""
-                    
-                    out.write(f'    "{origen}" -> "{arista.destino}" ')
-                    out.write(f'[label="T:{arista.tiempo}s | C:{arista.costo:.1f}"{flecha}];\n')
-                    
-                    aristas_procesadas.add(par)
-                    if es_bidireccional:
-                        aristas_procesadas.add(par_inverso)
-
+                    out.write(
+                        f'    "{origen}" -> "{arista.destino}" '
+                        f'[label="t={arista.tiempo}s\\nc={arista.costo:.2f}"];\n'
+                    )
+            
             out.write("}\n")
         
         print(f"Grafo exportado: {archivo}")

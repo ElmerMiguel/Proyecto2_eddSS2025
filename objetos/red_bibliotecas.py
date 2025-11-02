@@ -6,7 +6,7 @@ from objetos.inventario import Inventario
 from typing import Dict, List, Optional
 import csv
 import os
-
+import unicodedata # Nueva importación
 
 class RedBibliotecas:
     """
@@ -32,9 +32,18 @@ class RedBibliotecas:
         self.grafo.agregar_nodo(biblioteca.id, biblioteca.nombre)
 
     @staticmethod
-    def _mapear_columnas(encabezado: List[str]) -> Dict[str, int]:
-        """Crea un mapa columna -> indice en minusculas para acceso flexible."""
-        return {col.strip().lower(): idx for idx, col in enumerate(encabezado)}
+    def _normalizar_texto(texto: str) -> str:
+        """Remueve tildes y convierte a minusculas."""
+        if texto is None:
+            return ""
+        # Normaliza a NFD y elimina caracteres diacríticos (tildes)
+        texto = unicodedata.normalize("NFD", texto.strip().lower())
+        return "".join(c for c in texto if unicodedata.category(c) != "Mn")
+
+    @classmethod
+    def _mapear_columnas(cls, encabezado: List[str]) -> Dict[str, int]:
+        """Crea un mapa columna -> indice en minusculas y sin tildes."""
+        return {cls._normalizar_texto(col): idx for idx, col in enumerate(encabezado)}
 
     @staticmethod
     def _leer_campo(fila: List[str], indice: int, por_defecto: str = "") -> str:
@@ -63,17 +72,20 @@ class RedBibliotecas:
                     print("Archivo de bibliotecas vacio.")
                     return 0
                 
+                # Se utiliza el nuevo _mapear_columnas (cls/staticmethod)
+                mapa = self._mapear_columnas(encabezado)
+
                 for fila in lector:
                     if not fila or len(fila) < 6:
                         continue
                     
-                    mapa = self._mapear_columnas(encabezado)
+                    # Uso de mapa normalizado y lecturas por índice
                     id_bib = self._leer_campo(fila, mapa.get("id", 0))
                     nombre = self._leer_campo(fila, mapa.get("nombre", 1))
                     ubicacion = self._leer_campo(fila, mapa.get("ubicacion", 2))
-                    t_ingreso = int(self._leer_campo(fila, mapa.get("t_ingreso", 3), "10") or 10)
-                    t_traspaso = int(self._leer_campo(fila, mapa.get("t_traspaso", 4), "5") or 5)
-                    intervalo = int(self._leer_campo(fila, mapa.get("dispatchinterval", 5), "3") or 3)
+                    t_ingreso = int(self._leer_campo(fila, mapa.get("tiempoingreso", 3), "10") or 10)
+                    t_traspaso = int(self._leer_campo(fila, mapa.get("tiempotraspaso", 4), "5") or 5)
+                    intervalo = int(self._leer_campo(fila, mapa.get("intervalodespacho", 5), "3") or 3)
                     
                     biblioteca = Biblioteca(
                         id_biblioteca=id_bib,
@@ -109,13 +121,16 @@ class RedBibliotecas:
                     print("Archivo de conexiones vacio.")
                     return 0
                 
+                # Se utiliza el nuevo _mapear_columnas (cls/staticmethod)
+                mapa = self._mapear_columnas(encabezado)
+
                 for fila in lector:
                     if not fila or len(fila) < 4:
                         continue
                     
-                    mapa = self._mapear_columnas(encabezado)
-                    origen = self._leer_campo(fila, mapa.get("origenid", 0))
-                    destino = self._leer_campo(fila, mapa.get("destinoid", 1))
+                    # Uso de mapa normalizado y lecturas por índice
+                    origen = self._leer_campo(fila, mapa.get("origen", 0))
+                    destino = self._leer_campo(fila, mapa.get("destino", 1))
                     tiempo = int(self._leer_campo(fila, mapa.get("tiempo", 2), "0") or 0)
                     costo = float(self._leer_campo(fila, mapa.get("costo", 3), "0") or 0.0)
                     
@@ -133,7 +148,7 @@ class RedBibliotecas:
     def cargar_libros_csv(self, ruta_archivo: str) -> int:
         """
         Carga libros desde CSV y los asigna a las bibliotecas.
-        Formato sugerido: titulo,isbn,genero,autor,anio,biblioteca_origen,biblioteca_destino,prioridad
+        Formato sugerido: titulo,isbn,genero,autor,anio,estado,biblioteca_origen,biblioteca_destino,prioridad
         """
         if not os.path.exists(ruta_archivo):
             print(f"Error: no se encontro el archivo {ruta_archivo}")
@@ -153,19 +168,32 @@ class RedBibliotecas:
                     return 0
                 
                 mapa = self._mapear_columnas(encabezado)
+
+                # Mapeo de índices para mayor flexibilidad
+                idx_titulo = mapa.get("titulo", 0)
+                idx_isbn = mapa.get("isbn", 1)
+                idx_genero = mapa.get("genero", 2)
+                idx_autor = mapa.get("autor", 4)
+                idx_anio = mapa.get("anio", mapa.get("ano", 3)) # Manejo de "año" o "anio"
+                idx_estado = mapa.get("estado", 5) # Nuevo campo de estado
+                idx_origen = mapa.get("idbibliotecaorigen", mapa.get("bibliotecaorigen", 6))
+                idx_destino = mapa.get("idbibliotecadestino", mapa.get("bibliotecadestino", 7))
+                idx_prioridad = mapa.get("prioridad", 8)
+
                 for fila in lector:
-                    if not fila or len(fila) < 4:
+                    if not fila:
                         continue
                     
                     try:
-                        titulo = self._leer_campo(fila, mapa.get("titulo", 0))
-                        isbn = self._leer_campo(fila, mapa.get("isbn", 1))
-                        genero = self._leer_campo(fila, mapa.get("genero", 2))
-                        autor = self._leer_campo(fila, mapa.get("autor", 3))
-                        anio = int(self._leer_campo(fila, mapa.get("anio", 4), "0") or 0)
-                        origen = self._leer_campo(fila, mapa.get("biblioteca_origen", 5))
-                        destino = self._leer_campo(fila, mapa.get("biblioteca_destino", 6))
-                        prioridad = self._leer_campo(fila, mapa.get("prioridad", 7), "tiempo") or "tiempo"
+                        titulo = self._leer_campo(fila, idx_titulo)
+                        isbn = self._leer_campo(fila, idx_isbn)
+                        genero = self._leer_campo(fila, idx_genero)
+                        autor = self._leer_campo(fila, idx_autor)
+                        anio = int(self._leer_campo(fila, idx_anio, "0") or 0)
+                        estado = self._leer_campo(fila, idx_estado, "disponible") or "disponible" # Leer estado
+                        origen = self._leer_campo(fila, idx_origen)
+                        destino = self._leer_campo(fila, idx_destino)
+                        prioridad = self._leer_campo(fila, idx_prioridad, "tiempo") or "tiempo"
                         
                         if not origen or origen not in self.bibliotecas:
                             print(f"Libro '{titulo}' omitido: biblioteca origen invalida")
@@ -177,10 +205,10 @@ class RedBibliotecas:
                             genero=genero,
                             anio=anio,
                             autor=autor,
-                            estado="disponible",
+                            estado=estado.lower(), # Normalizar estado a minúsculas
                             biblioteca_origen=origen,
                             biblioteca_destino=destino,
-                            prioridad=prioridad
+                            prioridad=prioridad.lower() # Normalizar prioridad a minúsculas
                         )
                         
                         biblioteca = self.bibliotecas[origen]
@@ -191,7 +219,8 @@ class RedBibliotecas:
                         )
                         cargados += 1
                         
-                        if destino and destino != origen:
+                        # Programar transferencia solo si el estado es 'disponible' y hay un destino diferente
+                        if destino and destino != origen and libro.estado == "disponible":
                             self.programar_transferencia(isbn, origen, destino, prioridad)
                     except Exception as error:
                         print(f"Error al cargar libro desde fila {fila}: {error}")
@@ -307,27 +336,38 @@ class RedBibliotecas:
             biblioteca.procesar_traspaso()
             libro = biblioteca.procesar_salida()
             if libro:
-                despachados.append((libro, biblioteca.id))
+                despachados.append(libro)
         
-        for libro, origen in despachados:
-            self._mover_libro_en_transito(libro, origen)
+        for libro in despachados:
+            # Buscar la transferencia activa de este libro. El origen se infiere de la transferencia
+            # o se asume que acaba de salir de la cola_salida de una biblioteca, pero para
+            # _mover_libro_en_transito solo necesitamos el libro.
+            self._mover_libro_en_transito(libro)
         
         finalizadas = [trans for trans in self.transferencias_activas if trans.estado == "completado"]
         for trans in finalizadas:
             self.transferencias_activas.remove(trans)
             self.transferencias_completadas.append(trans)
 
-    def _mover_libro_en_transito(self, libro: Libro, biblioteca_actual: str) -> None:
+    def _mover_libro_en_transito(self, libro: Libro) -> None:
         """Mueve un libro al siguiente nodo de su ruta."""
+        trans_encontrada = None
         for trans in self.transferencias_activas:
             if trans.libro.isbn == libro.isbn:
-                siguiente = trans.avanzar_paso()
-                if siguiente:
-                    self.bibliotecas[siguiente].agregar_libro_ingreso(libro)
-                else:
-                    destino = trans.destino
-                    self.bibliotecas[destino].agregar_libro_ingreso(libro)
+                trans_encontrada = trans
                 break
+        
+        if trans_encontrada:
+            siguiente = trans_encontrada.avanzar_paso()
+            if siguiente:
+                self.bibliotecas[siguiente].agregar_libro_ingreso(libro)
+            else:
+                destino = trans_encontrada.destino
+                self.bibliotecas[destino].agregar_libro_ingreso(libro)
+        else:
+            # En caso de que un libro se despache sin una transferencia activa (error lógico o caso no contemplado)
+            print(f"Advertencia: Libro {libro.isbn} despachado sin transferencia activa.")
+
 
     # -------------------------------------------------
     # Consultas y reportes

@@ -38,6 +38,27 @@ class ControladorCatalogo:
         self.pila_devoluciones = Pila()
 
     # -----------------------
+    # Accesores para GUI / Visualizaciones
+    # -----------------------
+    def obtener_estructura(self, clave: str):
+        """Retorna la estructura solicitada para visualizacion."""
+        mapa = {
+            "avl": self.arbol_titulos,
+            "b": self.arbol_fechas,
+            "bplus": self.arbol_generos,
+            "hash": self.tabla_isbn,
+            "lista": self.lista_secuencial, # Opcional, pero util para mostrar
+        }
+        return mapa.get(clave.lower())
+
+    def exportar_estructura_dot(self, clave: str, archivo_dot: str) -> None:
+        """Genera un archivo DOT de la estructura solicitada."""
+        estructura = self.obtener_estructura(clave)
+        if not estructura or not hasattr(estructura, "exportar_dot"):
+            raise ValueError(f"Estructura '{clave}' no soportada para exportacion DOT")
+        estructura.exportar_dot(archivo_dot)
+
+    # -----------------------
     # Operaciones CRUD
     # -----------------------
    
@@ -188,7 +209,7 @@ class ControladorCatalogo:
             # Quitar el push automático temporalmente
             temp_push = self.pila_operaciones.push
             self.pila_operaciones.push = lambda x: None
-            self.agregar_libro(libro, "General")
+            self.agregar_libro(libro, "General") # Asume que el libro original fue a General
             self.pila_operaciones.push = temp_push
         
         return True
@@ -227,14 +248,14 @@ class ControladorCatalogo:
                 reader = csv.reader(archivo)
                 try:
                     encabezado = next(reader)  # ✅ SALTAR ENCABEZADO
-                    print(f"Encabezado libros: {encabezado}")
+                    # print(f"Encabezado libros: {encabezado}") # Se comenta para evitar comentarios
                 except StopIteration:
                     print("Archivo vacío o sin encabezado.")
                     return 0
                 
                 for fila in reader:
                     if not fila or len(fila) < 9:
-                        print(f"Fila incompleta ignorada: {fila}")
+                        # print(f"Fila incompleta ignorada: {fila}") # Se comenta para evitar comentarios
                         continue
                         
                     try:
@@ -251,7 +272,7 @@ class ControladorCatalogo:
                         
                         # Validar campos obligatorios
                         if not all([titulo, isbn, genero, autor]):
-                            print(f"Campos obligatorios faltantes: {fila}")
+                            # print(f"Campos obligatorios faltantes: {fila}") # Se comenta para evitar comentarios
                             continue
                         
                         # Crear libro
@@ -271,21 +292,21 @@ class ControladorCatalogo:
                         if red_bibliotecas and id_origen in red_bibliotecas.bibliotecas:
                             # Agregar a la biblioteca correcta
                             red_bibliotecas.bibliotecas[id_origen].catalogo_local.agregar_libro(libro, nombre_coleccion)
-                            print(f"✅ Libro '{titulo}' agregado a biblioteca {id_origen}")
+                            # print(f"✅ Libro '{titulo}' agregado a biblioteca {id_origen}") # Se comenta para evitar comentarios
                             
                             # ✅ SI HAY DESTINO DIFERENTE, PROGRAMAR TRANSFERENCIA
                             if id_destino and id_destino != id_origen and id_destino in red_bibliotecas.bibliotecas:
                                 red_bibliotecas.programar_transferencia(libro.isbn, id_origen, id_destino, prioridad)
-                                print(f"📦 Transferencia programada: {titulo} de {id_origen} a {id_destino}")
+                                # print(f"📦 Transferencia programada: {titulo} de {id_origen} a {id_destino}") # Se comenta para evitar comentarios
                         else:
                             # Agregar al catálogo actual (primera biblioteca)
                             self.agregar_libro(libro, nombre_coleccion)
-                            print(f"✅ Libro '{titulo}' agregado a catálogo actual")
+                            # print(f"✅ Libro '{titulo}' agregado a catálogo actual") # Se comenta para evitar comentarios
                         
                         contador += 1
                         
-                    except Exception as e:
-                        print(f"❌ Error procesando fila {fila}: {e}")
+                    except Exception: # Se elimina la impresión de la excepción para evitar comentarios
+                        # print(f"❌ Error procesando fila {fila}: {e}") # Se comenta para evitar comentarios
                         continue
 
             print(f"\n✅ Carga completada: {contador} libros importados")
@@ -299,29 +320,37 @@ class ControladorCatalogo:
     # Exportar y generar gráficos (DOT -> PNG + SVG)
     # -----------------------
     def exportar_avl(self, archivo: str) -> None:
-        self.arbol_titulos.exportar_dot(archivo)
+        self.exportar_estructura_dot("avl", archivo)
         self._generar_grafica_desde_dot(Path(archivo).with_suffix("").as_posix())
 
     def exportar_b(self, archivo: str) -> None:
-        self.arbol_fechas.exportar_dot(archivo)
+        self.exportar_estructura_dot("b", archivo)
         self._generar_grafica_desde_dot(Path(archivo).with_suffix("").as_posix())
 
     def exportar_bplus(self, archivo: str) -> None:
-        self.arbol_generos.exportar_dot(archivo)
+        self.exportar_estructura_dot("bplus", archivo)
         self._generar_grafica_desde_dot(Path(archivo).with_suffix("").as_posix())
 
     def exportar_hash(self, archivo: str) -> None:
-        self.tabla_isbn.exportar_dot(archivo)
+        self.exportar_estructura_dot("hash", archivo)
         self._generar_grafica_desde_dot(Path(archivo).with_suffix("").as_posix())
 
     def exportar_todos_los_dots(self) -> None:
         Path("graficos_arboles").mkdir(parents=True, exist_ok=True)
         print("Exportando todos los arboles a DOT y PNG/SVG...")
         print("=============================================")
-        self.exportar_avl("graficos_arboles/arbol_avl_titulos.dot")
-        self.exportar_b("graficos_arboles/arbol_b_fechas.dot")
-        self.exportar_hash("graficos_arboles/tabla_hash_isbn.dot")
-        self.exportar_bplus("graficos_arboles/arbol_bplus_generos.dot")
+        # Uso de la nueva función unificada
+        self.exportar_estructura_dot("avl", "graficos_arboles/arbol_avl_titulos.dot")
+        self.exportar_estructura_dot("b", "graficos_arboles/arbol_b_fechas.dot")
+        self.exportar_estructura_dot("hash", "graficos_arboles/tabla_hash_isbn.dot")
+        self.exportar_estructura_dot("bplus", "graficos_arboles/arbol_bplus_generos.dot")
+        
+        # Generación de gráficas (separado del DOT)
+        self._generar_grafica_desde_dot("graficos_arboles/arbol_avl_titulos")
+        self._generar_grafica_desde_dot("graficos_arboles/arbol_b_fechas")
+        self._generar_grafica_desde_dot("graficos_arboles/tabla_hash_isbn")
+        self._generar_grafica_desde_dot("graficos_arboles/arbol_bplus_generos")
+
         print("=============================================")
         print("Archivos generados en carpeta 'graficos_arboles/'")
 

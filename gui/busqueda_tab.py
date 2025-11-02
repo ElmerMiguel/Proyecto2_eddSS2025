@@ -4,7 +4,6 @@ Pestaña Búsqueda y Rutas Óptimas
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-import time
 from .config import *
 
 class BusquedaTab:
@@ -14,29 +13,36 @@ class BusquedaTab:
         self.red_bibliotecas = red_bibliotecas
         self.ruta_resultado_label = None
         
-        # Variables de entrada
-        self.buscar_titulo_var = tk.StringVar()
-        self.buscar_isbn_var = tk.StringVar()
-        self.buscar_genero_var = tk.StringVar()
-        self.anio_inicio_var = tk.StringVar()
-        self.anio_fin_var = tk.StringVar()
-        
+        # Variables de entrada de Ruta
         self.ruta_origen_var = tk.StringVar()
         self.ruta_destino_var = tk.StringVar()
         self.criterio_var = tk.StringVar(value="tiempo")
+        
+        # Búsqueda unificada (NUEVO)
+        self.criterio_busqueda_var = tk.StringVar(value="Título (AVL)")
+        self.search_text_var = tk.StringVar()
+        self.search_aux_var = tk.StringVar()
+        self._generos_cache = []
+        self.search_entry: ttk.Combobox | None = None
+        self.search_aux_entry: ttk.Entry | None = None
     
     def actualizar_generos_combo(self, genero_combo):
         """Actualiza combo de géneros disponibles"""
+        generos = self._obtener_generos_disponibles()
+        genero_combo["values"] = generos
+        genero_combo.configure(state="readonly" if generos else "disabled")
+
+    def _obtener_generos_disponibles(self):
+        """Recopila y retorna la lista de géneros únicos disponibles."""
         generos = set()
         for bib in self.red_bibliotecas.bibliotecas.values():
             try:
-                generos_bib = bib.catalogo_local.obtener_generos_disponibles()
-                generos.update(generos_bib)
+                # Asumiendo que catalogo_local tiene el método obtener_generos_unicos()
+                generos.update(bib.catalogo_local.obtener_generos_unicos())
             except Exception:
-                pass
-        
-        if generos:
-            genero_combo['values'] = list(generos)
+                continue
+        self._generos_cache = sorted(generos)
+        return self._generos_cache
     
     def actualizar_comboboxes_rutas(self, origen_combo, destino_combo):
         """Actualiza comboboxes de bibliotecas para rutas"""
@@ -45,112 +51,117 @@ class BusquedaTab:
         if bibliotecas_ids:
             origen_combo['values'] = bibliotecas_ids
             destino_combo['values'] = bibliotecas_ids
-    
-    def buscar_por_titulo(self):
-        """Búsqueda por título usando AVL"""
-        titulo = self.buscar_titulo_var.get()
-        if not titulo:
-            messagebox.showwarning("Advertencia", "Ingrese un título para buscar")
+
+    def ejecutar_busqueda(self):
+        """Método unificado para realizar la búsqueda según el criterio seleccionado."""
+        criterio = self.criterio_busqueda_var.get()
+        texto = self.search_text_var.get().strip()
+        auxiliar = self.search_aux_var.get().strip()
+
+        if not texto and criterio != "Rango de Fechas (B)":
+            messagebox.showwarning("Advertencia", "Ingrese un valor de búsqueda")
             return
         
-        resultados = []
-        for biblioteca in self.red_bibliotecas.bibliotecas.values():
+        if criterio == "Rango de Fechas (B)" and (not texto or not auxiliar):
+             messagebox.showerror("Error", "Ingrese años de inicio y fin")
+             return
+
+        resultados = [] # Lista de (Libro, ID_Biblioteca)
+        for biblioteca_id, biblioteca in self.red_bibliotecas.bibliotecas.items():
+            catalogo = biblioteca.catalogo_local
             try:
-                libro = biblioteca.catalogo_local.buscar_por_titulo(titulo)
-                if libro:
-                    resultados.append(libro)
+                if criterio == "Título (AVL)":
+                    libro = catalogo.buscar_por_titulo(texto)
+                    if libro:
+                        resultados.append((libro, biblioteca_id))
+                elif criterio == "ISBN (Hash)":
+                    libro = catalogo.buscar_por_isbn(texto)
+                    if libro:
+                        resultados.append((libro, biblioteca_id))
+                        # Si es por ISBN, asumimos unicidad global y terminamos la búsqueda
+                        break 
+                elif criterio == "Género (B+)":
+                    for libro in catalogo.buscar_por_genero(texto):
+                        resultados.append((libro, biblioteca_id))
+                elif criterio == "Rango de Fechas (B)":
+                    try:
+                        inicio, fin = int(texto), int(auxiliar)
+                    except ValueError:
+                        messagebox.showerror("Error", "Los años deben ser números válidos")
+                        return
+                    for libro in catalogo.buscar_por_rango_fechas(inicio, fin):
+                        resultados.append((libro, biblioteca_id))
             except Exception:
-                pass
-        
-        self._mostrar_resultados_busqueda(resultados, f"Título: {titulo}")
-    
-    def buscar_por_isbn(self):
-        """Búsqueda por ISBN usando Hash"""
-        isbn = self.buscar_isbn_var.get()
-        if not isbn:
-            messagebox.showwarning("Advertencia", "Ingrese un ISBN para buscar")
+                continue
+
+        # Generar texto de criterio para el resultado
+        if criterio == "Rango de Fechas (B)":
+            criterio_texto = f"{criterio}: {texto} - {auxiliar}"
+        else:
+            criterio_texto = f"{criterio}: {texto}"
+
+        if not resultados:
+            messagebox.showinfo("Búsqueda", f"No se encontraron libros para {criterio_texto}")
             return
-        
-        resultados = []
-        for biblioteca in self.red_bibliotecas.bibliotecas.values():
-            try:
-                libro = biblioteca.catalogo_local.buscar_por_isbn(isbn)
-                if libro:
-                    resultados.append(libro)
-                    break
-            except Exception:
-                pass
-        
-        self._mostrar_resultados_busqueda(resultados, f"ISBN: {isbn}")
-    
-    def buscar_por_genero(self):
-        """Búsqueda por género usando B+"""
-        genero = self.buscar_genero_var.get()
-        if not genero:
-            messagebox.showwarning("Advertencia", "Seleccione un género para buscar")
+
+        self._mostrar_resultados_busqueda(resultados, criterio_texto)
+
+    def limpiar_busqueda(self):
+        """Limpia los campos de búsqueda."""
+        self.search_text_var.set("")
+        self.search_aux_var.set("")
+        self._on_criterio_cambiado() # Opcional: restablecer el estado del combobox/entry
+
+    def _on_criterio_cambiado(self, *args):
+        """Maneja el cambio de criterio de búsqueda para actualizar la UI."""
+        if not self.search_entry or not self.search_aux_entry:
             return
-        
-        resultados = []
-        for biblioteca in self.red_bibliotecas.bibliotecas.values():
-            try:
-                libros = biblioteca.catalogo_local.buscar_por_genero(genero)
-                resultados.extend(libros)
-            except Exception:
-                pass
-        
-        self._mostrar_resultados_busqueda(resultados, f"Género: {genero}")
-    
-    def buscar_por_rango(self):
-        """Búsqueda por rango de fechas usando Árbol B"""
-        try:
-            inicio = int(self.anio_inicio_var.get()) if self.anio_inicio_var.get() else None
-            fin = int(self.anio_fin_var.get()) if self.anio_fin_var.get() else None
             
-            if inicio is None or fin is None:
-                messagebox.showerror("Error", "Ingrese ambos años para el rango")
-                return
-            
-            resultados = []
-            for biblioteca in self.red_bibliotecas.bibliotecas.values():
-                try:
-                    libros_rango = biblioteca.catalogo_local.buscar_por_rango_fechas(inicio, fin)
-                    resultados.extend(libros_rango)
-                except Exception:
-                    pass
-            
-            self._mostrar_resultados_busqueda(resultados, f"Rango: {inicio}-{fin}")
-            
-        except ValueError:
-            messagebox.showerror("Error", "Los años deben ser números válidos")
-    
-    def _mostrar_resultados_busqueda(self, libros, criterio):
+        criterio = self.criterio_busqueda_var.get()
+        self.search_text_var.set("")
+        self.search_aux_var.set("") # Limpiar auxiliar al cambiar criterio
+
+        if criterio == "Rango de Fechas (B)":
+            # Para rango, ambos son entry de texto (años)
+            self.search_entry.configure(values=(), state="normal") 
+            self.search_aux_entry.configure(state="normal")
+        else:
+            self.search_aux_entry.configure(state="disabled")
+            if criterio == "Género (B+)":
+                # Para género, es un combobox de selección obligatoria (readonly)
+                generos = self._obtener_generos_disponibles()
+                self.search_entry.configure(values=generos, state="readonly")
+            else:
+                # Para Título/ISBN, es un entry de texto normal
+                self.search_entry.configure(values=(), state="normal")
+
+    def _mostrar_resultados_busqueda(self, resultados, criterio):
         """Mostrar resultados en una ventana nueva"""
-        if not libros:
-            messagebox.showinfo("Búsqueda", f"No se encontraron libros para {criterio}")
-            return
         
         ventana = tk.Toplevel()
         ventana.title(f"Resultados - {criterio}")
-        ventana.geometry("800x400")
+        ventana.geometry("900x400")
         ventana.configure(bg=BG_COLOR)
         
         frame = ttk.Frame(ventana, style='Sky.TFrame', padding=10)
         frame.pack(fill='both', expand=True)
         
-        tk.Label(frame, text=f"Resultados para {criterio} ({len(libros)} encontrados):",
+        tk.Label(frame, text=f"Resultados para {criterio} ({len(resultados)} encontrados):",
                 font=FONT_TITLE_MEDIUM, bg=FILTER_BG).pack(pady=(0, 10))
         
-        tree = ttk.Treeview(frame, columns=("Título", "Autor", "ISBN", "Año", "Género"), 
+        # Columna extra para la Biblioteca de Origen (NUEVO)
+        tree = ttk.Treeview(frame, columns=("Título", "Autor", "ISBN", "Año", "Género", "Biblioteca"), 
                            show='headings')
         tree.heading("Título", text="Título")
         tree.heading("Autor", text="Autor")
         tree.heading("ISBN", text="ISBN")
         tree.heading("Año", text="Año")
         tree.heading("Género", text="Género")
+        tree.heading("Biblioteca", text="Biblioteca Origen")
         
-        for libro in libros:
+        for libro, biblioteca_id in resultados:
             tree.insert("", "end", values=(
-                libro.titulo, libro.autor, libro.isbn, libro.anio, libro.genero
+                libro.titulo, libro.autor, libro.isbn, libro.anio, libro.genero, biblioteca_id
             ))
         
         tree.pack(fill='both', expand=True)
@@ -201,48 +212,47 @@ def crear_busqueda_rutas_tab(notebook, red_bibliotecas):
     # Crear controlador
     ctrl = BusquedaTab(red_bibliotecas)
     
-    # === FRAME BÚSQUEDA ===
+    # === FRAME BÚSQUEDA UNIFICADA (NUEVO) ===
     search_frame = ttk.Frame(tab_busqueda_rutas, style='Sky.TFrame', padding=15)
     search_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
     
     tk.Label(search_frame, text="🔍 BÚSQUEDA AVANZADA", 
              font=FONT_TITLE_MEDIUM, fg=TITLE_COLOR, bg=FILTER_BG).pack(pady=(0, 10))
     
-    # Búsqueda por Título
-    tk.Label(search_frame, text="Buscar por Título (AVL):", bg=FILTER_BG).pack(anchor='w')
-    search_title_frame = ttk.Frame(search_frame, style='Sky.TFrame')
-    search_title_frame.pack(fill='x')
-    ttk.Entry(search_title_frame, textvariable=ctrl.buscar_titulo_var).pack(side='left', fill='x', expand=True)
-    ttk.Button(search_title_frame, text="Buscar", 
-               command=ctrl.buscar_por_titulo).pack(side='left', padx=3)
+    filtros_container = ttk.Frame(search_frame, style='Sky.TFrame')
+    filtros_container.pack(fill='x', pady=5)
     
-    # Búsqueda por ISBN
-    tk.Label(search_frame, text="Buscar por ISBN (HASH):", bg=FILTER_BG).pack(anchor='w', pady=(10, 0))
-    search_isbn_frame = ttk.Frame(search_frame, style='Sky.TFrame')
-    search_isbn_frame.pack(fill='x')
-    ttk.Entry(search_isbn_frame, textvariable=ctrl.buscar_isbn_var).pack(side='left', fill='x', expand=True)
-    ttk.Button(search_isbn_frame, text="Buscar", 
-               command=ctrl.buscar_por_isbn).pack(side='left', padx=3)
+    # Criterio
+    ttk.Label(filtros_container, text="Criterio:", background=FILTER_BG).grid(row=0, column=0, sticky="w", padx=2, pady=2)
+    ttk.Combobox(
+        filtros_container,
+        textvariable=ctrl.criterio_busqueda_var,
+        values=["Título (AVL)", "ISBN (Hash)", "Género (B+)", "Rango de Fechas (B)"],
+        state="readonly",
+        width=18,
+    ).grid(row=0, column=1, padx=4, pady=2, sticky="w")
     
-    # Búsqueda por Género
-    tk.Label(search_frame, text="Buscar por Género (B+):", bg=FILTER_BG).pack(anchor='w', pady=(10, 0))
-    search_genre_frame = ttk.Frame(search_frame, style='Sky.TFrame')
-    search_genre_frame.pack(fill='x')
-    buscar_genero_combo = ttk.Combobox(search_genre_frame, textvariable=ctrl.buscar_genero_var)
-    buscar_genero_combo.pack(side='left', fill='x', expand=True)
-    ttk.Button(search_genre_frame, text="Buscar", 
-               command=ctrl.buscar_por_genero).pack(side='left', padx=3)
+    # Valor Principal
+    ttk.Label(filtros_container, text="Valor:", background=FILTER_BG).grid(row=1, column=0, sticky="w", padx=2, pady=2)
+    ctrl.search_entry = ttk.Combobox(filtros_container, textvariable=ctrl.search_text_var, width=28)
+    ctrl.search_entry.grid(row=1, column=1, padx=4, pady=2, sticky="ew")
     
-    # Búsqueda por Rango
-    tk.Label(search_frame, text="Rango de Fechas (Árbol B):", bg=FILTER_BG).pack(anchor='w', pady=(10, 0))
-    search_date_frame = ttk.Frame(search_frame, style='Sky.TFrame')
-    search_date_frame.pack(fill='x')
-    ttk.Entry(search_date_frame, textvariable=ctrl.anio_inicio_var, width=10).pack(side='left', padx=3)
-    tk.Label(search_date_frame, text="a", bg=FILTER_BG).pack(side='left')
-    ttk.Entry(search_date_frame, textvariable=ctrl.anio_fin_var, width=10).pack(side='left', padx=3)
-    ttk.Button(search_date_frame, text="Buscar", 
-               command=ctrl.buscar_por_rango).pack(side='left', padx=3)
-    
+    # Valor Auxiliar (para Rango de Fechas)
+    ttk.Label(filtros_container, text="Auxiliar (solo rango):", background=FILTER_BG).grid(row=2, column=0, sticky="w", padx=2, pady=2)
+    ctrl.search_aux_entry = ttk.Entry(filtros_container, textvariable=ctrl.search_aux_var, width=18)
+    ctrl.search_aux_entry.grid(row=2, column=1, padx=4, pady=2, sticky="w")
+    ctrl.search_aux_entry.configure(state="disabled")
+
+    # Botones de Acción
+    acciones_frame = ttk.Frame(search_frame, style='Sky.TFrame')
+    acciones_frame.pack(fill='x', pady=8)
+    ttk.Button(acciones_frame, text="🔍 Buscar", command=ctrl.ejecutar_busqueda).pack(side='left', padx=4)
+    ttk.Button(acciones_frame, text="🗑️ Limpiar", command=ctrl.limpiar_busqueda).pack(side='left', padx=4)
+
+    # Enlace de Criterio de Búsqueda
+    ctrl.criterio_busqueda_var.trace_add("write", ctrl._on_criterio_cambiado)
+    ctrl._on_criterio_cambiado() # Llamada inicial para configurar la UI
+
     # === FRAME RUTAS ===
     rutas_frame = ttk.Frame(tab_busqueda_rutas, style='Sky.TFrame', padding=15)
     rutas_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
@@ -284,8 +294,8 @@ def crear_busqueda_rutas_tab(notebook, red_bibliotecas):
                            highlightthickness=1, highlightbackground=TITLE_COLOR)
     ruta_canvas.pack(fill='both', expand=True)
     
-    # Actualizar comboboxes
-    ctrl.actualizar_generos_combo(buscar_genero_combo)
+    # Actualizar comboboxes de ruta y precargar géneros
     ctrl.actualizar_comboboxes_rutas(ruta_origen_combo, ruta_destino_combo)
+    ctrl._obtener_generos_disponibles() # Solo cargar el caché al inicio
     
     return tab_busqueda_rutas, ctrl

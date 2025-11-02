@@ -3,12 +3,14 @@ from objetos.libro import Libro
 import time
 
 def medir_tiempo(func, libros: List[Libro], clave: str) -> Tuple[List[Libro], float]:
+    """Mide el tiempo de ejecucion de una funcion de ordenamiento."""
     inicio = time.perf_counter()
     resultado = func(libros.copy(), clave)
     fin = time.perf_counter()
     return resultado, fin - inicio
 
 def burbuja(libros: List[Libro], clave="titulo") -> List[Libro]:
+    """Algoritmo de ordenamiento Burbuja."""
     n = len(libros)
     for i in range(n):
         for j in range(0, n - i - 1):
@@ -17,6 +19,7 @@ def burbuja(libros: List[Libro], clave="titulo") -> List[Libro]:
     return libros
 
 def seleccion(libros: List[Libro], clave="titulo") -> List[Libro]:
+    """Algoritmo de ordenamiento por Seleccion."""
     n = len(libros)
     for i in range(n):
         min_idx = i
@@ -27,6 +30,7 @@ def seleccion(libros: List[Libro], clave="titulo") -> List[Libro]:
     return libros
 
 def insercion(libros: List[Libro], clave="titulo") -> List[Libro]:
+    """Algoritmo de ordenamiento por Insercion."""
     for i in range(1, len(libros)):
         key = libros[i]
         j = i - 1
@@ -37,6 +41,7 @@ def insercion(libros: List[Libro], clave="titulo") -> List[Libro]:
     return libros
 
 def shell_sort(libros: List[Libro], clave="titulo") -> List[Libro]:
+    """Algoritmo de ordenamiento Shell Sort."""
     n = len(libros)
     gap = n // 2
     while gap > 0:
@@ -51,15 +56,25 @@ def shell_sort(libros: List[Libro], clave="titulo") -> List[Libro]:
     return libros
 
 def quick_sort(libros: List[Libro], clave="titulo") -> List[Libro]:
+    """Algoritmo de ordenamiento QuickSort."""
     if len(libros) <= 1:
         return libros
+    # Elegir el pivote
     pivote = libros[len(libros) // 2]
+    
+    # Particionar la lista
     izq = [x for x in libros if getattr(x, clave) < getattr(pivote, clave)]
     centro = [x for x in libros if getattr(x, clave) == getattr(pivote, clave)]
     der = [x for x in libros if getattr(x, clave) > getattr(pivote, clave)]
+    
+    # Llamada recursiva
     return quick_sort(izq, clave) + centro + quick_sort(der, clave)
 
-def comparar_metodos(libros: List[Libro], clave="titulo"):
+def comparar_metodos(libros: List[Libro], clave="titulo") -> str:
+    """
+    Compara el tiempo de ejecucion de varios metodos de ordenamiento 
+    y retorna el reporte en formato string.
+    """
     metodos = {
         "Burbuja": burbuja,
         "Seleccion": seleccion,
@@ -68,13 +83,18 @@ def comparar_metodos(libros: List[Libro], clave="titulo"):
         "QuickSort": quick_sort
     }
     
-    print(f"\nComparacion de metodos de ordenamiento por {clave}")
-    print("=" * 60)
-    print(f"{'METODO':<20}{'TIEMPO (segundos)':<25}{'ELEMENTOS'}")
-    print("=" * 60)
+    lineas = []
+    lineas.append(f"\nComparacion de metodos de ordenamiento por **{clave}**")
+    lineas.append("=" * 60)
+    lineas.append(f"{'METODO':<20}{'TIEMPO (segundos)':<25}{'ELEMENTOS'}")
+    lineas.append("=" * 60)
     
     for nombre, metodo in metodos.items():
         _, tiempo = medir_tiempo(metodo, libros, clave)
-        print(f"{nombre:<20}{tiempo:<25.6f}{len(libros)}")
+        lineas.append(f"{nombre:<20}{tiempo:<25.6f}{len(libros)}")
     
-    print("=" * 60)
+    lineas.append("=" * 60)
+    
+    reporte = "\n".join(lineas)
+    print(reporte) 
+    return reporte 

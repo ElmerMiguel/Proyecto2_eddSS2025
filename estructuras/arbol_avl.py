@@ -3,137 +3,123 @@ from objetos.libro import Libro
 class NodoAVL:
     def __init__(self, libro: Libro):
         self.data = libro
-        self.izq = None
-        self.der = None
+        self.izq: "NodoAVL | None" = None
+        self.der: "NodoAVL | None" = None
         self.altura = 1
-
 
 class ArbolAVL:
     def __init__(self):
-        self.raiz = None
+        self.raiz: NodoAVL | None = None
 
-    # --- Utilidades internas ---
-    def _altura(self, nodo):
+    # ---------------- Utilidades internas ----------------
+    def _altura(self, nodo: NodoAVL | None) -> int:
         return nodo.altura if nodo else 0
 
-    def _balance(self, nodo):
+    def _actualizar_altura(self, nodo: NodoAVL) -> None:
+        nodo.altura = 1 + max(self._altura(nodo.izq), self._altura(nodo.der))
+
+    def _balance(self, nodo: NodoAVL | None) -> int:
         return self._altura(nodo.izq) - self._altura(nodo.der) if nodo else 0
 
-    def _rotacion_derecha(self, y):
+    def _rotar_derecha(self, y: NodoAVL) -> NodoAVL:
         x = y.izq
-        T2 = x.der
+        T2 = x.der if x else None
         x.der = y
         y.izq = T2
-
-        y.altura = 1 + max(self._altura(y.izq), self._altura(y.der))
-        x.altura = 1 + max(self._altura(x.izq), self._altura(x.der))
+        self._actualizar_altura(y)
+        self._actualizar_altura(x)
         return x
 
-    def _rotacion_izquierda(self, x):
+    def _rotar_izquierda(self, x: NodoAVL) -> NodoAVL:
         y = x.der
-        T2 = y.izq
+        T2 = y.izq if y else None
         y.izq = x
         x.der = T2
-
-        x.altura = 1 + max(self._altura(x.izq), self._altura(x.der))
-        y.altura = 1 + max(self._altura(y.izq), self._altura(y.der))
+        self._actualizar_altura(x)
+        self._actualizar_altura(y)
         return y
 
-    # --- Inserción ---
-    def _insertar(self, nodo, libro):
+    # ---------------- Inserción ----------------
+    def insertar(self, libro: Libro) -> None:
+        self.raiz = self._insertar(self.raiz, libro)
+
+    def _insertar(self, nodo: NodoAVL | None, libro: Libro) -> NodoAVL:
         if not nodo:
             return NodoAVL(libro)
-
         if libro.titulo < nodo.data.titulo:
             nodo.izq = self._insertar(nodo.izq, libro)
         elif libro.titulo > nodo.data.titulo:
             nodo.der = self._insertar(nodo.der, libro)
         else:
-            return nodo  # duplicado
+            nodo.data = libro
+            return nodo
 
-        nodo.altura = 1 + max(self._altura(nodo.izq), self._altura(nodo.der))
+        self._actualizar_altura(nodo)
         balance = self._balance(nodo)
 
-        # Casos de rotación
         if balance > 1 and libro.titulo < nodo.izq.data.titulo:
-            return self._rotacion_derecha(nodo)
+            return self._rotar_derecha(nodo)
         if balance < -1 and libro.titulo > nodo.der.data.titulo:
-            return self._rotacion_izquierda(nodo)
+            return self._rotar_izquierda(nodo)
         if balance > 1 and libro.titulo > nodo.izq.data.titulo:
-            nodo.izq = self._rotacion_izquierda(nodo.izq)
-            return self._rotacion_derecha(nodo)
+            nodo.izq = self._rotar_izquierda(nodo.izq)
+            return self._rotar_derecha(nodo)
         if balance < -1 and libro.titulo < nodo.der.data.titulo:
-            nodo.der = self._rotacion_derecha(nodo.der)
-            return self._rotacion_izquierda(nodo)
-
+            nodo.der = self._rotar_derecha(nodo.der)
+            return self._rotar_izquierda(nodo)
         return nodo
 
-    def insertar(self, libro: Libro):
-        self.raiz = self._insertar(self.raiz, libro)
+    # ---------------- Búsqueda ----------------
+    def buscar(self, titulo: str) -> Libro | None:
+        actual = self.raiz
+        while actual:
+            if titulo == actual.data.titulo:
+                return actual.data
+            actual = actual.izq if titulo < actual.data.titulo else actual.der
+        return None
 
-    # --- Búsqueda ---
-    def _buscar(self, nodo, titulo: str):
+    # ---------------- Eliminación ----------------
+    def eliminar(self, titulo: str) -> None:
+        self.raiz = self._eliminar(self.raiz, titulo)
+
+    def _eliminar(self, nodo: NodoAVL | None, titulo: str) -> NodoAVL | None:
         if not nodo:
             return None
-        if titulo == nodo.data.titulo:
-            return nodo
-        elif titulo < nodo.data.titulo:
-            return self._buscar(nodo.izq, titulo)
-        else:
-            return self._buscar(nodo.der, titulo)
-
-    def buscar(self, titulo: str):
-        nodo = self._buscar(self.raiz, titulo)
-        return nodo.data if nodo else None
-
-    # --- Eliminación ---
-    def _encontrar_min(self, nodo):
-        actual = nodo
-        while actual and actual.izq:
-            actual = actual.izq
-        return actual
-
-    def _eliminar(self, nodo, titulo):
-        if not nodo:
-            return nodo
-
         if titulo < nodo.data.titulo:
             nodo.izq = self._eliminar(nodo.izq, titulo)
         elif titulo > nodo.data.titulo:
             nodo.der = self._eliminar(nodo.der, titulo)
         else:
-            # Nodo con 1 o 0 hijos
             if not nodo.izq or not nodo.der:
-                nodo = nodo.izq if nodo.izq else nodo.der
+                nodo = nodo.izq or nodo.der
             else:
-                temp = self._encontrar_min(nodo.der)
-                nodo.data = temp.data
-                nodo.der = self._eliminar(nodo.der, temp.data.titulo)
-
+                sucesor = self._minimo(nodo.der)
+                nodo.data = sucesor.data
+                nodo.der = self._eliminar(nodo.der, sucesor.data.titulo)
         if not nodo:
-            return nodo
+            return None
 
-        nodo.altura = 1 + max(self._altura(nodo.izq), self._altura(nodo.der))
+        self._actualizar_altura(nodo)
         balance = self._balance(nodo)
 
-        # Rotaciones de equilibrio
         if balance > 1 and self._balance(nodo.izq) >= 0:
-            return self._rotacion_derecha(nodo)
-        if balance < -1 and self._balance(nodo.der) <= 0:
-            return self._rotacion_izquierda(nodo)
+            return self._rotar_derecha(nodo)
         if balance > 1 and self._balance(nodo.izq) < 0:
-            nodo.izq = self._rotacion_izquierda(nodo.izq)
-            return self._rotacion_derecha(nodo)
+            nodo.izq = self._rotar_izquierda(nodo.izq)
+            return self._rotar_derecha(nodo)
+        if balance < -1 and self._balance(nodo.der) <= 0:
+            return self._rotar_izquierda(nodo)
         if balance < -1 and self._balance(nodo.der) > 0:
-            nodo.der = self._rotacion_derecha(nodo.der)
-            return self._rotacion_izquierda(nodo)
-
+            nodo.der = self._rotar_derecha(nodo.der)
+            return self._rotar_izquierda(nodo)
         return nodo
 
-    def eliminar(self, titulo: str):
-        self.raiz = self._eliminar(self.raiz, titulo)
+    def _minimo(self, nodo: NodoAVL) -> NodoAVL:
+        while nodo.izq:
+            nodo = nodo.izq
+        return nodo
 
-    # --- Recorridos ---
+    # ---------------- Recorridos y utilidades existentes ----------------
     def _inorder(self, nodo):
         if nodo:
             self._inorder(nodo.izq)
@@ -142,56 +128,14 @@ class ArbolAVL:
 
     def mostrar_inorder(self):
         self._inorder(self.raiz)
-    
+
     def inorder(self):
-        """Retorna lista de libros ordenados por título (recorrido in-order)."""
         libros = []
         self._recopilar_libros(self.raiz, libros)
         return libros
-    
 
-    # --- Exportar DOT ---
-    def _exportar_dot_rec(self, nodo, out):
-        if not nodo:
-            return
-        if nodo.izq:
-            out.write(f"\"{nodo.data.titulo}\" -> \"{nodo.izq.data.titulo}\" [label=\"L\"];\n")
-            self._exportar_dot_rec(nodo.izq, out)
-        if nodo.der:
-            out.write(f"\"{nodo.data.titulo}\" -> \"{nodo.der.data.titulo}\" [label=\"R\"];\n")
-            self._exportar_dot_rec(nodo.der, out)
-
-    def exportar_dot(self, archivo: str):
-        with open(archivo, "w", encoding="utf-8") as out:
-            out.write("digraph AVL {\n")
-            out.write("node [shape=circle, style=filled, fillcolor=lightblue];\n")
-            out.write("rankdir=TB;\nordering=out;\n")
-            if self.raiz:
-                self._exportar_dot_rec(self.raiz, out)
-            else:
-                out.write("empty [label=\"Arbol Vacio\"];\n")
-            out.write("}\n")
-
-    # --- Listar títulos ---
     def _recopilar_libros(self, nodo, libros):
         if nodo:
             self._recopilar_libros(nodo.izq, libros)
             libros.append(nodo.data)
             self._recopilar_libros(nodo.der, libros)
-
-    def listar_titulos(self):
-        libros = []
-        self._recopilar_libros(self.raiz, libros)
-        if not libros:
-            print("No hay títulos disponibles.")
-            return
-
-        ancho_titulo = max(len("TITULO"), max(len(l.titulo) for l in libros))
-        ancho_autor = max(len("AUTOR"), max(len(l.autor) for l in libros))
-        ancho_anio = len("AÑO")
-        ancho_isbn = max(len("ISBN"), max(len(l.isbn) for l in libros))
-
-        print(f"{'TITULO':<{ancho_titulo}}  {'AUTOR':<{ancho_autor}}  {'AÑO':<{ancho_anio}}  {'ISBN':<{ancho_isbn}}")
-        print("=" * (ancho_titulo + ancho_autor + ancho_anio + ancho_isbn + 6))
-        for l in libros:
-            print(f"{l.titulo:<{ancho_titulo}}  {l.autor:<{ancho_autor}}  {l.anio:<{ancho_anio}}  {l.isbn:<{ancho_isbn}}")
