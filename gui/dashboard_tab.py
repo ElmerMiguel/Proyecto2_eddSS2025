@@ -36,8 +36,8 @@ def crear_dashboard(notebook):
     crear_tarjeta_info(tab_dashboard, "🏛️", "Red de Bibliotecas", 
                        "Estructuras: Grafo Ponderado (Nodos/Aristas)", 0, 1, ACCENT_COLOR, 2)
     
-    crear_tarjeta_info(tab_dashboard, "🗺️", "Rutas y Búsqueda", 
-                       "Algoritmos: Dijkstra / Búsqueda en Árboles", 0, 2, ACCENT_COLOR, 3)
+    crear_tarjeta_info(tab_dashboard, "🗺️", "Rutas Optimas", 
+                       "Algoritmos: Dijkstra", 0, 2, ACCENT_COLOR, 3)
     
     crear_tarjeta_info(tab_dashboard, "⏳", "Simulación de Flujo", 
                        "Algoritmos: Colas FIFO (Ingreso, Traspaso, Salida)", 1, 0, ACCENT_COLOR, 4)
