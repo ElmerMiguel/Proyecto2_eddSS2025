@@ -272,6 +272,11 @@ class ControladorCatalogo:
                             # Agregar a la biblioteca correcta
                             red_bibliotecas.bibliotecas[id_origen].catalogo_local.agregar_libro(libro, nombre_coleccion)
                             print(f"✅ Libro '{titulo}' agregado a biblioteca {id_origen}")
+                            
+                            # ✅ SI HAY DESTINO DIFERENTE, PROGRAMAR TRANSFERENCIA
+                            if id_destino and id_destino != id_origen and id_destino in red_bibliotecas.bibliotecas:
+                                red_bibliotecas.programar_transferencia(libro.isbn, id_origen, id_destino, prioridad)
+                                print(f"📦 Transferencia programada: {titulo} de {id_origen} a {id_destino}")
                         else:
                             # Agregar al catálogo actual (primera biblioteca)
                             self.agregar_libro(libro, nombre_coleccion)

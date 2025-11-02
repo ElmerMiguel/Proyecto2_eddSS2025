@@ -95,6 +95,9 @@ def iniciar_gui():
     anio_var = tk.StringVar()
     genero_var = tk.StringVar()
     estado_var = tk.StringVar(value="disponible")
+    biblioteca_origen_var = tk.StringVar()
+    biblioteca_destino_var = tk.StringVar()
+    prioridad_var = tk.StringVar(value="tiempo")
     
     # Variables para bibliotecas
     bib_nombre_var = tk.StringVar()
@@ -163,12 +166,18 @@ def iniciar_gui():
             destino_combo['values'] = bibliotecas_ids
             ruta_origen_combo['values'] = bibliotecas_ids
             ruta_destino_combo['values'] = bibliotecas_ids
+            # ✅ AGREGAR ESTAS LÍNEAS:
+            biblioteca_origen_combo['values'] = bibliotecas_ids
+            biblioteca_destino_combo['values'] = bibliotecas_ids
+            
+            # Establecer primera biblioteca como origen por defecto
+            if biblioteca_origen_var.get() == "":
+                biblioteca_origen_var.set(bibliotecas_ids[0])
         
         # Actualizar géneros disponibles
         generos = set()
         for bib in red_bibliotecas.bibliotecas.values():
             try:
-                # ✅ CORREGIDO: catalogo_local
                 generos_bib = bib.catalogo_local.obtener_generos_disponibles()
                 generos.update(generos_bib)
             except Exception:
@@ -177,57 +186,73 @@ def iniciar_gui():
         if generos:
             buscar_genero_combo['values'] = list(generos)
 
+    
+    
+    
+    
     def agregar_libro():
-        """Agregar libro al catálogo"""
+        """Agregar nuevo libro con todos los campos"""
         try:
-            if not all([titulo_var.get(), autor_var.get(), isbn_var.get(), 
-                       anio_var.get(), genero_var.get()]):
-                messagebox.showerror("Error", "Todos los campos son obligatorios")
+            # Validar campos obligatorios
+            if not all([titulo_var.get().strip(), autor_var.get().strip(), isbn_var.get().strip()]):
+                messagebox.showerror("Error", "Título, autor e ISBN son obligatorios")
                 return
             
-            # ✅ VALIDACIÓN DE DATOS ANTES DE CREAR EL LIBRO
+            # Validar que hay bibliotecas
+            if not red_bibliotecas.bibliotecas:
+                messagebox.showerror("Error", "No hay bibliotecas. Carga bibliotecas primero.")
+                return
+                
             try:
                 anio = int(anio_var.get())
             except ValueError:
                 messagebox.showerror("Error", "El año debe ser un número válido")
                 return
             
+            # ✅ CREAR LIBRO CON TODOS LOS CAMPOS
             libro = Libro(
-                titulo=titulo_var.get(),
-                isbn=isbn_var.get(),
-                genero=genero_var.get(),
+                titulo=titulo_var.get().strip(),
+                isbn=isbn_var.get().strip(),
+                genero=genero_var.get().strip(),
                 anio=anio,
-                autor=autor_var.get(),
-                estado=estado_var.get()
+                autor=autor_var.get().strip(),
+                estado=estado_var.get(),
+                biblioteca_origen=biblioteca_origen_var.get(),
+                biblioteca_destino=biblioteca_destino_var.get(),
+                prioridad=prioridad_var.get()
             )
             
-            # Agregar a primera biblioteca disponible o crear una por defecto
-            if not red_bibliotecas.bibliotecas:
-                # Crear biblioteca por defecto
-                bib_default = Biblioteca("BIB001", "Biblioteca Principal", "Principal")
-                red_bibliotecas.bibliotecas["BIB001"] = bib_default
-                # ✅ CORREGIDO: grafo en lugar de grafo_red
-                red_bibliotecas.grafo.agregar_nodo("BIB001", "Biblioteca Principal")
+            # ✅ AGREGAR A BIBLIOTECA CORRECTA
+            bib_origen = biblioteca_origen_var.get()
+            if bib_origen and bib_origen in red_bibliotecas.bibliotecas:
+                red_bibliotecas.bibliotecas[bib_origen].catalogo_local.agregar_libro(libro, "General")
+                
+                # ✅ SI HAY DESTINO DIFERENTE, PROGRAMAR TRANSFERENCIA
+                bib_destino = biblioteca_destino_var.get()
+                if bib_destino and bib_destino != bib_origen:
+                    red_bibliotecas.programar_transferencia(libro.isbn, bib_origen, bib_destino, prioridad_var.get())
+            else:
+                # Agregar a primera biblioteca disponible
+                primera_bib = next(iter(red_bibliotecas.bibliotecas.values()))
+                primera_bib.catalogo_local.agregar_libro(libro, "General")
             
-            primera_bib = next(iter(red_bibliotecas.bibliotecas.values()))
-            # ✅ CORREGIDO: catalogo_local
-            primera_bib.catalogo_local.agregar_libro(libro)
-            
-            messagebox.showinfo("Éxito", f"Libro '{libro.titulo}' agregado correctamente")
-            
-            # Limpiar campos
+            # Limpiar formulario
             titulo_var.set("")
             autor_var.set("")
             isbn_var.set("")
             anio_var.set("")
             genero_var.set("")
             estado_var.set("disponible")
+            biblioteca_origen_var.set("")
+            biblioteca_destino_var.set("")
+            prioridad_var.set("tiempo")
             
+            messagebox.showinfo("Éxito", f"Libro '{libro.titulo}' agregado correctamente")
             actualizar_catalogo_tree()
-            actualizar_comboboxes()
             
         except Exception as e:
             messagebox.showerror("Error", f"Error al agregar libro: {e}")
+
 
     def eliminar_libro():
         """Eliminar libro del catálogo"""
@@ -730,6 +755,27 @@ Más rápido: {'Hash' if tiempo_hash < min(tiempo_secuencial, tiempo_avl) else '
 
     tk.Label(crud_frame, text="Estado:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
     ttk.Combobox(crud_frame, textvariable=estado_var, values=["disponible", "prestado", "en_transito", "agotado"]).pack(fill='x')
+    
+    
+    
+    # ✅ AGREGAR ESTOS CAMPOS NUEVOS:
+    tk.Label(crud_frame, text="Biblioteca Origen:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
+    biblioteca_origen_combo = ttk.Combobox(crud_frame, textvariable=biblioteca_origen_var)
+    biblioteca_origen_combo.pack(fill='x')
+
+    tk.Label(crud_frame, text="Biblioteca Destino:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
+    biblioteca_destino_combo = ttk.Combobox(crud_frame, textvariable=biblioteca_destino_var)
+    biblioteca_destino_combo.pack(fill='x')
+
+    tk.Label(crud_frame, text="Prioridad de Envío:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
+    prioridad_frame = ttk.Frame(crud_frame)
+    prioridad_frame.pack(fill='x', pady=2)
+    ttk.Radiobutton(prioridad_frame, text="Tiempo", variable=prioridad_var, value="tiempo").pack(side='left', padx=10)
+    ttk.Radiobutton(prioridad_frame, text="Costo", variable=prioridad_var, value="costo").pack(side='left', padx=10)
+    
+    
+    
+    
 
     ttk.Button(crud_frame, text="➕ Agregar Libro", command=agregar_libro).pack(pady=(20, 5), fill='x')
     ttk.Button(crud_frame, text="🗑️ Eliminar Libro", command=eliminar_libro).pack(pady=5, fill='x')

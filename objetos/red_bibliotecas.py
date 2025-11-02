@@ -137,6 +137,16 @@ class RedBibliotecas:
         # ✅ USAR LA PRIMERA BIBLIOTECA DISPONIBLE
         primera_bib = next(iter(self.bibliotecas.values()))
         return primera_bib.catalogo_local.cargar_desde_csv(ruta_archivo, "General", self)
+    
+        
+        # ✅ AGREGAR ESTE MÉTODO DESPUÉS DE cargar_libros_csv():
+    def programar_transferencia(self, isbn: str, origen: str, destino: str, prioridad: str = "tiempo") -> bool:
+        """
+        Programa una transferencia de libro entre bibliotecas.
+        Wrapper del método iniciar_transferencia() para compatibilidad con GUI.
+        """
+        print(f"📦 Programando transferencia: {isbn} de {origen} a {destino} (prioridad: {prioridad})")
+        return self.iniciar_transferencia(isbn, origen, destino, prioridad)
         
     
     
