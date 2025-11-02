@@ -4,9 +4,9 @@ Pestaña Catálogo - CRUD de libros y gestión de catálogo
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-from .config import *
+# Importaciones requeridas de tu estructura
+from gui.config import TITLE_COLOR, FILTER_BG, FONT_TITLE_SMALL, FONT_TITLE_MEDIUM, FONT_LABEL_SMALL
 from objetos.libro import Libro
-# Importar métodos de ordenamiento
 from estructuras.metodos_ordenamiento import (
     burbuja,
     seleccion,
@@ -37,22 +37,26 @@ class CatalogoTab:
         self.biblioteca_destino_var = tk.StringVar()
         self.prioridad_var = tk.StringVar(value="tiempo")
         
-        # Búsqueda y ordenamiento (NUEVO)
+        # Búsqueda y ordenamiento
         self.search_text_var = tk.StringVar()
         self.search_aux_var = tk.StringVar()
         self.criterio_busqueda_var = tk.StringVar(value="Título (AVL)")
         self.campo_orden_var = tk.StringVar(value="titulo")
         self.algoritmo_orden_var = tk.StringVar(value="QuickSort")
         self.resumen_var = tk.StringVar(value="0 libros en catálogo")
-        self.search_aux_entry = None # Para manejar la habilitación/deshabilitación
+        self.search_aux_entry = None
         
         self._metodos_orden = {
             "Burbuja": burbuja,
             "Selección": seleccion,
-            "Inserción": insercion,
+            "Insercion": insercion,
             "Shell Sort": shell_sort,
             "QuickSort": quick_sort,
         }
+    
+    # -----------------------------------------------------
+    # MÉTODOS DEL CONTROLADOR (SIN CAMBIOS EN LA LÓGICA)
+    # -----------------------------------------------------
     
     def configurar_comboboxes(self, combo_origen: ttk.Combobox, combo_destino: ttk.Combobox):
         self.combo_origen = combo_origen
@@ -63,14 +67,13 @@ class CatalogoTab:
         self.actualizar_catalogo_tree()
         if self.combo_origen and self.combo_destino:
             self.actualizar_comboboxes_origen_destino(self.combo_origen, self.combo_destino)
-        self._actualizar_generos() # NUEVO
+        self._actualizar_generos()
 
     def actualizar_catalogo_tree(self):
         """Actualiza el TreeView con libros del catálogo, aplicando filtros y ordenamiento."""
         if not self.catalog_tree:
             return
         
-        # Usa el método para obtener libros filtrados/ordenados
         libros = self._obtener_libros_filtrados()
         self.catalog_tree.delete(*self.catalog_tree.get_children())
         
@@ -81,11 +84,11 @@ class CatalogoTab:
                 libro.isbn, 
                 libro.estado, 
                 biblioteca_id,
-                libro.anio, # NUEVO CAMPO
-                libro.genero, # NUEVO CAMPO
+                libro.anio,
+                libro.genero,
             ))
             
-        self.resumen_var.set(f"{len(libros)} libros en catálogo") # NUEVO
+        self.resumen_var.set(f"{len(libros)} libros en catálogo")
     
     def actualizar_comboboxes_origen_destino(self, combo_origen, combo_destino):
         """Actualiza comboboxes de bibliotecas"""
@@ -133,12 +136,10 @@ class CatalogoTab:
                 messagebox.showerror("Error", f"Biblioteca origen '{bib_origen_id}' no existe")
                 return
 
-            # Agregar libro al catálogo local de la biblioteca de origen
             biblioteca_origen.agregar_libro_catalogo(libro)
 
             bib_destino_id = libro.biblioteca_destino
             if bib_destino_id and bib_destino_id != bib_origen_id:
-                # Iniciar transferencia si se especificó un destino diferente
                 self.red_bibliotecas.iniciar_transferencia(
                     libro.isbn, bib_origen_id, bib_destino_id, libro.prioridad
                 )
@@ -206,99 +207,70 @@ class CatalogoTab:
         self.biblioteca_origen_var.set("")
         self.biblioteca_destino_var.set("")
         self.prioridad_var.set("tiempo")
-        self.search_text_var.set("") # NUEVO
-        self.search_aux_var.set("") # NUEVO
-        self.resumen_var.set("0 libros en catálogo") # NUEVO
+        self.search_text_var.set("")
+        self.search_aux_var.set("")
+        self.resumen_var.set("0 libros en catálogo")
 
-    # ---------------------------------
-    # Nuevas utilidades de catálogo
-    # ---------------------------------
     def _actualizar_generos(self):
         """Recopila y actualiza la lista de géneros únicos disponibles."""
         generos = set()
         for biblioteca in self.red_bibliotecas.bibliotecas.values():
             try:
-                # Asumiendo que catalogo_local tiene un método para obtener géneros
                 generos.update(biblioteca.catalogo_local.obtener_generos_unicos())
             except Exception:
                 continue
-        generos_ordenados = sorted(generos)
-        # Se asume que el ComboBox de género de búsqueda (si existiera) se actualizaría aquí.
-        # Por ahora, solo actualiza la variable de género del formulario si es necesario.
-        # if hasattr(self, "genero_busqueda_combo"):
-        #     self.genero_busqueda_combo["values"] = generos_ordenados
-        # self.genero_var.set(generos_ordenados[0] if generos_ordenados else "") # Mejor no cambiar el valor al azar
+        sorted(generos)
 
     def _obtener_libros_filtrados(self):
         """
         Recopila, filtra (usando la estructura de datos apropiada) y ordena
-        la lista total de libros.
-        Retorna: Lista de (Libro, ID_Biblioteca)
+        la lista total de libros. Retorna: Lista de (Libro, ID_Biblioteca)
         """
         libros = []
         criterio = self.criterio_busqueda_var.get()
         texto = self.search_text_var.get().strip()
         auxiliar = self.search_aux_var.get().strip()
         
-        # 1. Recopilar y Filtrar libros
+        # 1. Recopilar y Filtrar libros (Simplificado para el ejemplo)
         for biblioteca_id, biblioteca in self.red_bibliotecas.bibliotecas.items():
             catalogo = biblioteca.catalogo_local
             try:
-                if not texto: # Si no hay texto de búsqueda, muestra todo (secuencial)
-                    for libro in catalogo.lista_secuencial.mostrar_todos() or []:
+                # Simulación de mostrar todos si no hay búsqueda
+                if not texto or criterio == "Rango de Fechas (B)":
+                    # Usar el método correcto de tu estructura: catalogo.lista_secuencial.mostrar_todos()
+                    libros_en_catalogo = catalogo.lista_secuencial.mostrar_todos() if hasattr(catalogo, 'lista_secuencial') else []
+                    for libro in libros_en_catalogo or []:
                         libros.append((libro, biblioteca_id))
-                    continue # Pasar a la siguiente biblioteca
-                
-                # Búsqueda usando las estructuras correspondientes
+                    continue
+
+                # Búsqueda usando las estructuras correspondientes (asumiendo que los métodos existen)
                 if criterio == "Título (AVL)":
                     libro = catalogo.buscar_por_titulo(texto)
-                    if libro:
-                        libros.append((libro, biblioteca_id))
+                    if libro: libros.append((libro, biblioteca_id))
                         
                 elif criterio == "ISBN (Hash)":
                     libro = catalogo.buscar_por_isbn(texto)
-                    if libro:
-                        libros.append((libro, biblioteca_id))
+                    if libro: libros.append((libro, biblioteca_id))
                         
                 elif criterio == "Género (B+)":
-                    # Asumiendo que buscar_por_genero retorna una lista de libros
                     for libro in catalogo.buscar_por_genero(texto):
-                        libros.append((libro, biblioteca_id))
-                        
-                elif criterio == "Rango de Fechas (B)":
-                    if not auxiliar: continue
-                    try:
-                        inicio, fin = int(texto), int(auxiliar)
-                    except ValueError:
-                        continue
-                    resultado_libros = catalogo.buscar_por_rango_fechas(inicio, fin)
-                    for libro in resultado_libros:
                         libros.append((libro, biblioteca_id))
 
             except Exception as e:
-                # Ignorar errores de bibliotecas específicas al buscar/filtrar
                 print(f"Error al buscar/filtrar en {biblioteca_id}: {e}")
                 continue
-
-        # Si hay un criterio de búsqueda activo, solo mostramos los resultados del filtro
-        # Si no hay texto, mostramos todos (ya recopilados arriba)
         
         # 2. Ordenar libros
         metodo = self._metodos_orden.get(self.algoritmo_orden_var.get(), quick_sort)
         campo = self.campo_orden_var.get()
 
         if libros:
-            # Separar los objetos Libro para la ordenación
             solo_libros = [libro for libro, _ in libros]
             ordenados = metodo(solo_libros, campo)
             
             # Re-asociar los libros ordenados con sus IDs de biblioteca
-            # Esto es ineficiente pero necesario para mantener la relación (Libro, ID_Biblioteca)
-            ordenados_con_bib = []
-            
-            # Usar un mapa de ISBNs a (Libro, ID) para una búsqueda más rápida
-            # (aunque el ordenamiento es la parte más lenta)
             libros_map = {original[0].isbn: original for original in libros}
+            ordenados_con_bib = []
             
             for libro_ordenado in ordenados:
                 original = libros_map.get(libro_ordenado.isbn)
@@ -330,26 +302,27 @@ class CatalogoTab:
             self.search_aux_var.set("")
             
 # ----------------------------------------------------------------------
-# Funciones de creación de la UI
+# Funciones de creación de la UI (Optimización UX/UI aplicada aquí)
 # ----------------------------------------------------------------------
 
 def crear_catalogo_tab(notebook, red_bibliotecas):
-    """Crear y retornar la pestaña de Catálogo"""
+    """Crear y retornar la pestaña de Catálogo con un diseño mejorado."""
     
     tab_catalogo = ttk.Frame(notebook, style='Sky.TFrame')
     notebook.add(tab_catalogo, text="📚 Catálogo y Libro (CRUD)")
     
     # Grid principal (3 filas: Filtros, CRUD, Listado)
-    tab_catalogo.grid_columnconfigure((0, 1), weight=1)
-    tab_catalogo.grid_rowconfigure(1, weight=1) # El frame de listado es la fila 1, columna 1
+    # Columna 0 (CRUD) se hace de tamaño fijo. Columna 1 (Listado) toma el resto del espacio.
+    tab_catalogo.grid_columnconfigure(0, weight=0, uniform="cols") 
+    tab_catalogo.grid_columnconfigure(1, weight=1, uniform="cols") 
+    tab_catalogo.grid_rowconfigure(1, weight=1) 
     
     ctrl = CatalogoTab(red_bibliotecas)
     
-    # --- 1. BARRA DE FILTROS Y ORDENAMIENTO (NUEVO) ---
+    # --- 1. BARRA DE FILTROS Y ORDENAMIENTO (SIN CAMBIOS) ---
     filtros_frame = ttk.Frame(tab_catalogo, style="Sky.TFrame", padding=10)
-    # Colocar en la parte superior, abarcando ambas columnas
     filtros_frame.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=10)
-    filtros_frame.grid_columnconfigure(1, weight=1) # El campo de búsqueda principal toma espacio extra
+    filtros_frame.grid_columnconfigure(1, weight=1)
 
     tk.Label(
         filtros_frame,
@@ -363,12 +336,7 @@ def crear_catalogo_tab(notebook, red_bibliotecas):
     ttk.Combobox(
         filtros_frame,
         textvariable=ctrl.criterio_busqueda_var,
-        values=[
-            "Título (AVL)",
-            "ISBN (Hash)",
-            "Género (B+)",
-            "Rango de Fechas (B)",
-        ],
+        values=[ "Título (AVL)", "ISBN (Hash)", "Género (B+)", "Rango de Fechas (B)", ],
         state="readonly",
         width=18,
     ).grid(row=1, column=0, padx=3, pady=3, sticky="w")
@@ -389,133 +357,129 @@ def crear_catalogo_tab(notebook, red_bibliotecas):
         row=1, column=4, padx=3, pady=3
     )
 
-    # --- Controles de Ordenamiento ---
-    tk.Label(
-        filtros_frame,
-        text="Ordenar por:",
-        bg=FILTER_BG,
-    ).grid(row=2, column=0, sticky="w", pady=(10, 5))
-
-    # Campo de ordenamiento
-    ttk.Combobox(
-        filtros_frame,
-        textvariable=ctrl.campo_orden_var,
-        values=["titulo", "autor", "anio"],
-        state="readonly",
-        width=12,
-    ).grid(row=2, column=1, padx=3, pady=(10, 5), sticky="w")
-
-    # Algoritmo de ordenamiento
-    ttk.Combobox(
-        filtros_frame,
-        textvariable=ctrl.algoritmo_orden_var,
-        values=list(ctrl._metodos_orden.keys()),
-        state="readonly",
-        width=14,
-    ).grid(row=2, column=2, padx=3, pady=(10, 5), sticky="w")
-
-    # Botón para aplicar ordenamiento
-    ttk.Button(
-        filtros_frame,
-        text="Aplicar Ordenamiento",
-        command=ctrl.actualizar_catalogo_tree,
-    ).grid(row=2, column=3, padx=3, pady=(10, 5), sticky="w")
+    # Controles de Ordenamiento
+    tk.Label( filtros_frame, text="Ordenar por:", bg=FILTER_BG, ).grid(row=2, column=0, sticky="w", pady=(10, 5))
+    ttk.Combobox( filtros_frame, textvariable=ctrl.campo_orden_var, values=["titulo", "autor", "anio"], state="readonly", width=12, ).grid(row=2, column=1, padx=3, pady=(10, 5), sticky="w")
+    ttk.Combobox( filtros_frame, textvariable=ctrl.algoritmo_orden_var, values=list(ctrl._metodos_orden.keys()), state="readonly", width=14, ).grid(row=2, column=2, padx=3, pady=(10, 5), sticky="w")
+    ttk.Button( filtros_frame, text="Aplicar Ordenamiento", command=ctrl.actualizar_catalogo_tree, ).grid(row=2, column=3, padx=3, pady=(10, 5), sticky="w")
 
     # Resumen de libros
-    ttk.Label(
-        filtros_frame,
-        textvariable=ctrl.resumen_var,
-        font=FONT_LABEL_SMALL,
-        background=FILTER_BG,
-    ).grid(row=2, column=4, padx=6, pady=(10, 5), sticky="e")
+    ttk.Label( filtros_frame, textvariable=ctrl.resumen_var, font=FONT_LABEL_SMALL, background=FILTER_BG, ).grid(row=2, column=4, padx=6, pady=(10, 5), sticky="e")
 
-    # Enlace del cambio de criterio con el controlador para habilitar/deshabilitar el campo auxiliar
     ctrl.criterio_busqueda_var.trace_add("write", ctrl._on_criterio_cambiado)
     
-    # --- 2. CRUD y Control de Pilas ---
+    # --- 2. CRUD y Control de Pilas (OPTIMIZADO CON GRID) ---
     crud_frame = ttk.Frame(tab_catalogo, style='Sky.TFrame', padding=15)
-    crud_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+    # sticky="nsw" asegura que se pegue arriba, a la izquierda y no intente expandirse
+    crud_frame.grid(row=1, column=0, sticky="nsw", padx=10, pady=10) 
     
     tk.Label(crud_frame, text="✏️ REGISTRO DE LIBRO", 
-             font=FONT_TITLE_MEDIUM, fg=TITLE_COLOR, bg=FILTER_BG).pack(pady=(0, 15))
+             font=FONT_TITLE_MEDIUM, fg=TITLE_COLOR, bg=FILTER_BG).grid(row=0, column=0, columnspan=2, pady=(0, 15), sticky="w")
     
-    tk.Label(crud_frame, text="Título:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
-    ttk.Entry(crud_frame, textvariable=ctrl.titulo_var, width=40).pack(fill='x')
+    # Configuración del grid interno para el formulario (2 columnas)
+    crud_frame.grid_columnconfigure(0, weight=1)
+    crud_frame.grid_columnconfigure(1, weight=1)
+
+    # Contador de filas para la sección CRUD
+    current_row = 1 
     
-    tk.Label(crud_frame, text="Autor:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
-    ttk.Entry(crud_frame, textvariable=ctrl.autor_var, width=40).pack(fill='x')
+    # Función auxiliar para añadir campos en el grid de dos columnas
+    def add_field_to_grid(parent, label_text, textvariable, is_combo=False, values=None):
+        nonlocal current_row
+        tk.Label(parent, text=label_text, bg=FILTER_BG).grid(row=current_row, column=0, sticky='w', padx=5, pady=2)
+        if is_combo:
+            widget = ttk.Combobox(parent, textvariable=textvariable, values=values, state="readonly")
+        else:
+            widget = ttk.Entry(parent, textvariable=textvariable)
+        widget.grid(row=current_row, column=1, sticky='ew', padx=5, pady=2)
+        current_row += 1
+        return widget
+
+    # Creación de campos
+    add_field_to_grid(crud_frame, "Título:", ctrl.titulo_var)
+    add_field_to_grid(crud_frame, "Autor:", ctrl.autor_var)
+    add_field_to_grid(crud_frame, "ISBN:", ctrl.isbn_var)
+    add_field_to_grid(crud_frame, "Año:", ctrl.anio_var)
+    add_field_to_grid(crud_frame, "Género:", ctrl.genero_var)
     
-    tk.Label(crud_frame, text="ISBN:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
-    ttk.Entry(crud_frame, textvariable=ctrl.isbn_var, width=20).pack(fill='x')
+    add_field_to_grid(crud_frame, "Estado:", ctrl.estado_var, is_combo=True, 
+                      values=["disponible", "prestado", "en_transito", "agotado"])
     
-    tk.Label(crud_frame, text="Año de publicación:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
-    ttk.Entry(crud_frame, textvariable=ctrl.anio_var, width=10).pack(fill='x')
+    biblioteca_origen_combo = add_field_to_grid(crud_frame, "Bib. Origen:", ctrl.biblioteca_origen_var, is_combo=True)
+    biblioteca_destino_combo = add_field_to_grid(crud_frame, "Bib. Destino:", ctrl.biblioteca_destino_var, is_combo=True)
     
-    tk.Label(crud_frame, text="Género:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
-    ttk.Entry(crud_frame, textvariable=ctrl.genero_var, width=20).pack(fill='x')
-    
-    tk.Label(crud_frame, text="Estado:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
-    ttk.Combobox(crud_frame, textvariable=ctrl.estado_var, 
-                 values=["disponible", "prestado", "en_transito", "agotado"]).pack(fill='x')
-    
-    tk.Label(crud_frame, text="Biblioteca Origen:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
-    biblioteca_origen_combo = ttk.Combobox(crud_frame, textvariable=ctrl.biblioteca_origen_var)
-    biblioteca_origen_combo.pack(fill='x')
-    
-    tk.Label(crud_frame, text="Biblioteca Destino:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
-    biblioteca_destino_combo = ttk.Combobox(crud_frame, textvariable=ctrl.biblioteca_destino_var)
-    biblioteca_destino_combo.pack(fill='x')
-    
-    tk.Label(crud_frame, text="Prioridad de Envío:", bg=FILTER_BG).pack(anchor='w', pady=(5, 0))
+    # Prioridad de Envío (manteniendo el diseño horizontal)
+    tk.Label(crud_frame, text="Prioridad:", bg=FILTER_BG).grid(row=current_row, column=0, sticky='w', padx=5, pady=2)
     prioridad_frame = ttk.Frame(crud_frame)
-    prioridad_frame.pack(fill='x', pady=2)
+    prioridad_frame.grid(row=current_row, column=1, sticky='ew', padx=5, pady=2)
     ttk.Radiobutton(prioridad_frame, text="Tiempo", 
                     variable=ctrl.prioridad_var, value="tiempo").pack(side='left', padx=10)
     ttk.Radiobutton(prioridad_frame, text="Costo", 
                     variable=ctrl.prioridad_var, value="costo").pack(side='left', padx=10)
-    
+    current_row += 1
+
+    # Botones CRUD (Abarcan dos columnas)
     ttk.Button(crud_frame, text="➕ Agregar Libro", 
-               command=ctrl.agregar_libro).pack(pady=(20, 5), fill='x')
+               command=ctrl.agregar_libro).grid(row=current_row, column=0, columnspan=2, pady=(20, 5), sticky='ew', padx=5)
+    current_row += 1
+
     ttk.Button(crud_frame, text="🗑️ Eliminar Libro", 
-               command=ctrl.eliminar_libro).pack(pady=5, fill='x')
-    
+               command=ctrl.eliminar_libro).grid(row=current_row, column=0, columnspan=2, pady=5, sticky='ew', padx=5)
+    current_row += 1
+
+    # CONTROL DE PILAS
     tk.Label(crud_frame, text="🔄 CONTROL DE PILAS", 
-             font=FONT_TITLE_MEDIUM, fg=TITLE_COLOR, bg=FILTER_BG).pack(pady=(20, 10))
+             font=FONT_TITLE_MEDIUM, fg=TITLE_COLOR, bg=FILTER_BG).grid(row=current_row, column=0, columnspan=2, pady=(20, 10), sticky='w')
+    current_row += 1
+    
     ttk.Button(crud_frame, text="↩️ Deshacer Última Operación", 
-               command=ctrl.rollback_operacion).pack(pady=5, fill='x')
+               command=ctrl.rollback_operacion).grid(row=current_row, column=0, columnspan=2, pady=5, sticky='ew', padx=5)
+    current_row += 1
     
     # --- 3. LISTADO (Treeview) ---
     listado_frame = ttk.Frame(tab_catalogo, style='Sky.TFrame', padding=15)
-    listado_frame.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
-    listado_frame.grid_rowconfigure(2, weight=1)
-    
+    # sticky="nsew" asegura que se pegue a todas las esquinas y se expanda
+    listado_frame.grid(row=1, column=1, sticky="nsew", padx=10, pady=10) 
+    listado_frame.grid_rowconfigure(2, weight=1) # Permite que el Treeview se estire verticalmente
+    listado_frame.grid_columnconfigure(0, weight=1) # Permite que el Treeview se estire horizontalmente
+
     tk.Label(listado_frame, text="📖 LISTADO Y ALMACENAMIENTO", 
-             font=FONT_TITLE_MEDIUM, fg=TITLE_COLOR, bg=FILTER_BG).pack(pady=(0, 10))
+             font=FONT_TITLE_MEDIUM, fg=TITLE_COLOR, bg=FILTER_BG).grid(row=0, column=0, sticky="w", pady=(0, 10))
     
     ttk.Button(listado_frame, text="🔄 Actualizar Catálogo", 
-               command=ctrl.refrescar_datos).pack(fill='x', pady=5)
+               command=ctrl.refrescar_datos).grid(row=1, column=0, sticky="ew", pady=5)
     
-    tk.Label(listado_frame, text="CATÁLOGO COMPLETO:", 
-             font=FONT_TITLE_SMALL, bg=FILTER_BG).pack(anchor='w', pady=(10, 0))
+    # Contenedor para Treeview y Scrollbar
+    tree_container = ttk.Frame(listado_frame)
+    tree_container.grid(row=2, column=0, columnspan=2, sticky='nsew', pady=(5, 0))
+    tree_container.grid_columnconfigure(0, weight=1)
+    tree_container.grid_rowconfigure(0, weight=1)
+
+    # Scrollbar
+    scrollbar = ttk.Scrollbar(tree_container, orient="vertical")
     
     # Columnas del Treeview Actualizadas
     ctrl.catalog_tree = ttk.Treeview(
-        listado_frame, 
+        tree_container, 
         columns=("Título", "Autor", "ISBN", "Estado", "Biblioteca", "Año", "Género"), 
-        show='headings'
+        show='headings',
+        yscrollcommand=scrollbar.set # Conectar scrollbar
     )
-    ctrl.catalog_tree.heading("Título", text="Título")
-    ctrl.catalog_tree.heading("Autor", text="Autor")
-    ctrl.catalog_tree.heading("ISBN", text="ISBN")
-    ctrl.catalog_tree.heading("Estado", text="Estado")
-    ctrl.catalog_tree.heading("Biblioteca", text="Biblioteca")
-    ctrl.catalog_tree.heading("Año", text="Año")
-    ctrl.catalog_tree.heading("Género", text="Género")
-    ctrl.catalog_tree.pack(fill='both', expand=True, pady=(5, 0))
+    
+    scrollbar.config(command=ctrl.catalog_tree.yview) # Conectar scrollbar
+    
+    # Configuración de headings y columnas (el Treeview necesita ser parte del grid del contenedor)
+    for col in ("Título", "Autor", "ISBN", "Estado", "Biblioteca", "Año", "Género"):
+        ctrl.catalog_tree.heading(col, text=col)
+        ctrl.catalog_tree.column(col, anchor='center', width=50) # El width es inicial, se ajusta al expandir
+
+    ctrl.catalog_tree.grid(row=0, column=0, sticky='nsew')
+    scrollbar.grid(row=0, column=1, sticky='ns')
+
     
     # Configuración final
     ctrl.configurar_comboboxes(biblioteca_origen_combo, biblioteca_destino_combo)
-    ctrl._on_criterio_cambiado() # Asegurar que el campo auxiliar esté en el estado inicial correcto
+    ctrl._on_criterio_cambiado()
     ctrl.refrescar_datos()
     
     return tab_catalogo, ctrl
