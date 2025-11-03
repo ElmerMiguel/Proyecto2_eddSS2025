@@ -27,6 +27,13 @@ COLOR_BAJA = '#81C784'     # Verde claro (Baja Actividad)
 COLOR_MEDIA = '#FFB74D'    # Naranja claro (Media Actividad)
 COLOR_ALTA = '#F06292'     # Rosa (Alta Actividad)
 
+# === COLORES PARA ARISTAS DINÁMICAS ===
+COLOR_ARISTA_INACTIVA = '#B0B0B0'    # Gris - Sin transferencias
+COLOR_ARISTA_BAJA = '#4CAF50'        # Verde - Pocas transferencias
+COLOR_ARISTA_MEDIA = '#FF9800'       # Naranja - Transferencias moderadas
+COLOR_ARISTA_ALTA = '#F44336'        # Rojo - Muchas transferencias Muchas transferencias
+
+
 class SimulacionTab:
     """Controlador de la pestaña de Simulación"""
     
@@ -138,7 +145,7 @@ class SimulacionTab:
         
         self.ax.clear()
         self.ax.set_title('Red de Bibliotecas - Estado de Colas en Tiempo Real', 
-                         fontsize=14, fontweight='bold', pad=5) 
+                         fontsize=14, fontweight='bold', pad=5) # SIN EMOJI
         
         # Establecer límites del plot (coordenadas para el grafo)
         self.ax.set_xlim(0, 10)
@@ -158,7 +165,7 @@ class SimulacionTab:
 
         radio_nodo = 0.5 
         
-        # 1. DIBUJAR CONEXIONES (ARISTAS)
+        # 1. DIBUJAR CONEXIONES (ARISTAS) CON INFORMACIÓN DINÁMICA
         grafo = self.red_bibliotecas.grafo
         aristas_dibujadas = set()
 
@@ -175,7 +182,30 @@ class SimulacionTab:
                     x1, y1 = posiciones[origen]
                     x2, y2 = posiciones[destino]
                     
-                    self.ax.plot([x1, x2], [y1, y2], 'b-', alpha=0.6, linewidth=2, zorder=1)
+                    # ✅ CALCULAR ACTIVIDAD EN ESTA CONEXIÓN
+                    actividad_conexion = self._calcular_actividad_conexion(origen, destino)
+                    
+                    # ✅ COLOR Y GROSOR SEGÚN ACTIVIDAD
+                    if actividad_conexion == 0:
+                        color_arista = COLOR_ARISTA_INACTIVA
+                        grosor = 1
+                        alpha = 0.4
+                    elif actividad_conexion <= 2:
+                        color_arista = COLOR_ARISTA_BAJA
+                        grosor = 2
+                        alpha = 0.6
+                    elif actividad_conexion <= 5:
+                        color_arista = COLOR_ARISTA_MEDIA
+                        grosor = 3
+                        alpha = 0.8
+                    else:
+                        color_arista = COLOR_ARISTA_ALTA
+                        grosor = 4
+                        alpha = 1.0
+                    
+                    # Dibujar línea con estilo dinámico
+                    self.ax.plot([x1, x2], [y1, y2], color=color_arista, 
+                                 linewidth=grosor, alpha=alpha, zorder=1)
                     
                     mid_x, mid_y = (x1 + x2) / 2, (y1 + y2) / 2
                     
@@ -185,16 +215,29 @@ class SimulacionTab:
                         angulo = 0
 
                     distancia = 0.35
-                    
                     offset_x = distancia * math.sin(angulo)
                     offset_y = -distancia * math.cos(angulo)
-                         
-                    self.ax.text(mid_x + offset_x, mid_y + offset_y, 
-                                 f"T:{arista.tiempo//60}m C:{arista.costo:.0f}", 
+                    
+                    # ✅ ETIQUETA MEJORADA CON ACTIVIDAD (SIN EMOJIS)
+                    etiqueta_texto = f"T:{arista.tiempo//60}m C:{arista.costo:.0f}"
+                    if actividad_conexion > 0:
+                        etiqueta_texto += f"\nTrans: {actividad_conexion}" # SIN EMOJI
+                    
+                    # Color de fondo de etiqueta según actividad
+                    if actividad_conexion > 0:
+                        color_fondo = "lightyellow"
+                        color_borde = color_arista
+                    else:
+                        color_fondo = "white"
+                        color_borde = "gray"
+                        
+                    self.ax.text(mid_x + offset_x, mid_y + offset_y, etiqueta_texto,
                                  ha='center', va='center', fontsize=8, zorder=2,
-                                 bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.9))
+                                 bbox=dict(boxstyle="round,pad=0.2", 
+                                           facecolor=color_fondo, alpha=0.9,
+                                           edgecolor=color_borde))
         
-        # 2. DIBUJAR NODOS (BIBLIOTECAS CON COLAS)
+        # 2. DIBUJAR NODOS (BIBLIOTECAS CON COLAS) - SIN CAMBIOS EXCEPTO QUITAR EMOJIS
         for bib_id, (x, y) in posiciones.items():
             biblioteca = self.red_bibliotecas.bibliotecas[bib_id]
             estado_colas = biblioteca.obtener_estado_colas()
@@ -254,8 +297,40 @@ class SimulacionTab:
         """Actualiza el gráfico con datos en tiempo real"""
         self.dibujar_grafo_colas()
 
+    # AGREGAR ESTE NUEVO MÉTODO:
+    def _calcular_actividad_conexion(self, origen, destino):
+        """Calcula la actividad (transferencias) entre dos bibliotecas"""
+        try:
+            actividad = 0
+            
+            # Contar libros en cola de traspaso/salida hacia el destino
+            bib_origen = self.red_bibliotecas.bibliotecas.get(origen)
+            bib_destino = self.red_bibliotecas.bibliotecas.get(destino)
+            
+            if bib_origen:
+                # Simular que algunos libros en traspaso/salida van hacia destino
+                estado_origen = bib_origen.obtener_estado_colas()
+                # Aproximación: dividir entre número de bibliotecas conectadas
+                num_conexiones = len(self.red_bibliotecas.grafo.nodos.get(origen, []))
+                if num_conexiones > 0:
+                    actividad += (estado_origen["traspaso"]["cantidad"] + 
+                                  estado_origen["salida"]["cantidad"]) // max(num_conexiones, 1)
+            
+            if bib_destino:
+                # Contar libros que pueden venir desde origen
+                estado_destino = bib_destino.obtener_estado_colas()
+                num_conexiones = len(self.red_bibliotecas.grafo.nodos.get(destino, []))
+                if num_conexiones > 0:
+                    actividad += estado_destino["ingreso"]["cantidad"] // max(num_conexiones, 1)
+            
+            return min(actividad, 10) # Limitar para no sobrecargar visualmente
+            
+        except Exception as e:
+            return 0
+
+
     # ---------------------------------------------------------------------
-    # MÉTODOS DE SIMULACIÓN Y AUXILIARES
+    # MÉTODOS DE SIMULACIÓN Y AUXILIARES (Sin cambios en lógica)
     # ---------------------------------------------------------------------
 
     def iniciar_simulacion(self):
@@ -472,11 +547,29 @@ class SimulacionTab:
             print(f"Error actualizando estado: {e}")
 
 
+def crear_label_leyenda_color(parent, text_color, text_content, is_bold=False):
+    """Crea una etiqueta con el texto del color y un borde fuerte."""
+    font_style = ('TkDefaultFont', 10, 'bold' if is_bold else '')
+    
+    # Usamos tk.Label para poder especificar el color de texto (fg) y el borde.
+    lbl = tk.Label(parent, 
+                   text=text_content, 
+                   fg=text_color, 
+                   font=font_style, 
+                   bg='white', # Fondo neutro para que se vea el color del texto
+                   relief=tk.RIDGE, 
+                   bd=2, # Borde grueso para distinción
+                   padx=5, 
+                   pady=2)
+    lbl.pack(side='left', padx=(0, 10))
+    return lbl
+
+
 def crear_simulacion_tab(notebook, red_bibliotecas):
     """Crear pestaña de Simulación con visualización Matplotlib"""
     
     tab_simulacion = ttk.Frame(notebook, style='Sky.TFrame')
-    notebook.add(tab_simulacion, text="📦 Simulación y Colas")
+    notebook.add(tab_simulacion, text="Simulacion y Colas") # SIN EMOJI
     
     # Grid de 2 columnas
     tab_simulacion.grid_columnconfigure(0, weight=1)
@@ -490,15 +583,15 @@ def crear_simulacion_tab(notebook, red_bibliotecas):
     panel_izquierdo.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=5, pady=5)
     panel_izquierdo.grid_rowconfigure(2, weight=1)
     
-    # Controles
+    # Controles - QUITAR EMOJIS
     sim_controls = ttk.Frame(panel_izquierdo, style='Sky.TFrame', padding=10)
     sim_controls.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
     
-    tk.Label(sim_controls, text="⚙️ CONTROLES DE SIMULACIÓN", 
+    tk.Label(sim_controls, text="CONTROLES DE SIMULACION", 
              font=FONT_TITLE_MEDIUM, fg=TITLE_COLOR, bg=FILTER_BG).pack(side='left', padx=10)
-    ttk.Button(sim_controls, text="▶️ Iniciar", 
+    ttk.Button(sim_controls, text="Iniciar", 
                command=ctrl.iniciar_simulacion).pack(side='left', padx=5)
-    ttk.Button(sim_controls, text="⏸️ Pausar", 
+    ttk.Button(sim_controls, text="Pausar", 
                command=ctrl.pausar_simulacion).pack(side='left', padx=5)
     
     # Métricas
@@ -513,11 +606,11 @@ def crear_simulacion_tab(notebook, red_bibliotecas):
                               bg=FILTER_BG, fg=ACCENT_COLOR)
     metricas_label.pack(anchor='w', pady=5)
     
-    # Tabla de colas
+    # Tabla de colas - SIN EMOJIS
     colas_container = ttk.Frame(panel_izquierdo, style='Sky.TFrame', padding=10)
     colas_container.grid(row=2, column=0, sticky="nsew", padx=5, pady=5)
     
-    tk.Label(colas_container, text="🚦 ESTADO DETALLADO DE COLAS", 
+    tk.Label(colas_container, text="ESTADO DETALLADO DE COLAS", 
              font=FONT_TITLE_LARGE, fg=ACCENT_COLOR, bg=FILTER_BG).pack(pady=5)
     
     columnas = ("nombre", "ingreso", "traspaso", "salida", "frente_ing", "frente_tra", "frente_sal")
@@ -543,31 +636,14 @@ def crear_simulacion_tab(notebook, red_bibliotecas):
     panel_derecho = ttk.Frame(tab_simulacion, style='Sky.TFrame', padding=10)
     panel_derecho.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=5, pady=5)
     
-    # Título de Visualización
-    tk.Label(panel_derecho, text="📊 VISUALIZACIÓN EN TIEMPO REAL", 
+    # Título de Visualización - SIN EMOJIS
+    tk.Label(panel_derecho, text="VISUALIZACION EN TIEMPO REAL", 
              font=FONT_TITLE_LARGE, fg=ACCENT_COLOR, bg=FILTER_BG).pack(pady=5)
     
-    # NUEVA SECCIÓN DE LEYENDA (Texto en color con borde)
+    # SECCIÓN DE LEYENDA (Contiene todas las sub-leyendas)
     leyenda_frame = ttk.Frame(panel_derecho, style='Sky.TFrame', padding=5)
     leyenda_frame.pack(fill="x", padx=5, pady=(0, 5))
     
-    def crear_label_leyenda_color(parent, text_color, text_content, is_bold=False):
-        """Crea una etiqueta con el texto del color y un borde fuerte."""
-        font_style = ('TkDefaultFont', 10, 'bold' if is_bold else '')
-        
-        # Usamos tk.Label para poder especificar el color de texto (fg) y el borde.
-        lbl = tk.Label(parent, 
-                       text=text_content, 
-                       fg=text_color, 
-                       font=font_style, 
-                       bg='white', # Fondo neutro para que se vea el color del texto
-                       relief=tk.RIDGE, 
-                       bd=2, # Borde grueso para distinción
-                       padx=5, 
-                       pady=2)
-        lbl.pack(side='left', padx=(0, 10))
-        return lbl
-
     # 1. Leyenda de Colas (Tipo de Colas)
     tk.Label(leyenda_frame, text="Tipos de Cola (Etiqueta/Color):", 
              font=FONT_TITLE_SMALL, fg=TITLE_COLOR, bg=FILTER_BG).pack(anchor='w')
@@ -584,12 +660,27 @@ def crear_simulacion_tab(notebook, red_bibliotecas):
              font=FONT_TITLE_SMALL, fg=TITLE_COLOR, bg=FILTER_BG).pack(anchor='w')
 
     actividad_line = ttk.Frame(leyenda_frame, style='Sky.TFrame')
-    actividad_line.pack(anchor='w', pady=(2, 0))
+    actividad_line.pack(anchor='w', pady=(2, 5))
 
     crear_label_leyenda_color(actividad_line, 'black', "Inactivo (0)", is_bold=False).config(bg=COLOR_INACTIVO)
     crear_label_leyenda_color(actividad_line, COLOR_BAJA, "Baja (1-2)", is_bold=False)
     crear_label_leyenda_color(actividad_line, COLOR_MEDIA, "Media (3-5)", is_bold=False)
     crear_label_leyenda_color(actividad_line, COLOR_ALTA, "Alta (6+)", is_bold=False)
+    
+    # 3. NUEVA LEYENDA DE ARISTAS (FUERA DE MATPLOTLIB)
+    leyenda_aristas_frame = ttk.Frame(leyenda_frame, style='Sky.TFrame')
+    leyenda_aristas_frame.pack(anchor='w', pady=(5, 0))
+    
+    tk.Label(leyenda_aristas_frame, text="Estado de Conexiones (Aristas):", 
+             font=FONT_TITLE_SMALL, fg=TITLE_COLOR, bg=FILTER_BG).pack(anchor='w')
+
+    aristas_line = ttk.Frame(leyenda_aristas_frame, style='Sky.TFrame')
+    aristas_line.pack(anchor='w', pady=(2, 0))
+
+    crear_label_leyenda_color(aristas_line, 'black', "Sin Transferencias", is_bold=False).config(bg=COLOR_ARISTA_INACTIVA)
+    crear_label_leyenda_color(aristas_line, COLOR_ARISTA_BAJA, "Pocas (1-2)", is_bold=False)
+    crear_label_leyenda_color(aristas_line, COLOR_ARISTA_MEDIA, "Moderadas (3-5)", is_bold=False)
+    crear_label_leyenda_color(aristas_line, COLOR_ARISTA_ALTA, "Muchas (6+)", is_bold=False)
 
     # Crear figura matplotlib
     fig = Figure(figsize=(8, 6), dpi=100, facecolor='white')

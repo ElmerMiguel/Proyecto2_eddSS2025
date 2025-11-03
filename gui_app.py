@@ -32,7 +32,7 @@ def iniciar_gui():
     
     configurar_estilos(root)
     
-    title = tk.Label(root, text="✨ Sistema de Gestión Arcana ✨", 
+    title = tk.Label(root, text="✨ Sistema de Gestión BibMagic ✨", 
                      font=FONT_TITLE_LARGE, fg=TITLE_COLOR, bg=BG_COLOR)
     title.pack(pady=(20, 10))
     
