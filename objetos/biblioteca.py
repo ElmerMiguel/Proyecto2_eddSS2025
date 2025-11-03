@@ -9,10 +9,6 @@ import time
 
 
 class Biblioteca:
-    """
-    Representa un nodo del grafo (biblioteca individual).
-    Cada biblioteca tiene su propio catalogo y 3 colas de procesamiento.
-    """
     
     def __init__(self, id_biblioteca: str, nombre: str, ubicacion: str, 
                  tiempo_ingreso: int = 10, tiempo_traspaso: int = 5, intervalo_despacho: int = 3,
@@ -56,7 +52,6 @@ class Biblioteca:
             self.inventario.decrementar(self.id, genero, abs(delta))
 
     def agregar_libro_catalogo(self, libro: Libro, registrar_rollback: bool = True, contar_ingreso: bool = True) -> None:
-        """Agrega un libro al catálogo local y registra para rollback si es necesario."""
         libro.biblioteca_origen = libro.biblioteca_origen or self.id
         if not libro.biblioteca_destino:
             libro.biblioteca_destino = self.id
@@ -72,32 +67,20 @@ class Biblioteca:
             self.estadisticas["libros_ingresados"] += 1
 
     def actualizar_libro(self, isbn: str, nuevos_datos: dict, registrar_rollback: bool = True) -> bool:
-        """
-        Actualiza un libro manteniendo coherencia en TODAS las estructuras:
-        - AVL (índice principal por ISBN)
-        - Hash (índices por título, autor, género)
-        - Inventario (si cambia género)
-        - Rollback (guardar estado anterior)
-        """
         libro_original = self.obtener_libro_por_isbn(isbn)
         if not libro_original:
             return False
 
-        # Copia profunda del libro original para el rollback
         libro_anterior = libro_original.copy()
         genero_anterior = libro_original.genero
 
-        # Actualiza el libro en el ControladorCatalogo
         libro_modificado = self.catalogo_local.actualizar_libro(isbn, nuevos_datos)
 
         if libro_modificado:
             genero_nuevo = libro_modificado.genero
             
-            # Ajustar inventario si el género ha cambiado
             if genero_anterior != genero_nuevo:
-                # Decrementar el inventario del género anterior
                 self._actualizar_inventario(Libro(isbn=isbn, genero=genero_anterior, titulo="", autor=""), -1)
-                # Incrementar el inventario del nuevo género
                 self._actualizar_inventario(libro_modificado, 1)
 
             if registrar_rollback:
@@ -108,22 +91,14 @@ class Biblioteca:
                 }
                 self.pila_rollback.apilar(operacion)
             
-            print(f"Libro '{isbn}' actualizado en {self.nombre}")
             return True
         return False
 
     def agregar_libro_ingreso(self, libro: Libro) -> None:
-        """Agrega un libro a la cola de ingreso."""
         libro.cambiar_estado("en_transito")
         self.cola_ingreso.encolar(libro)
-        print(f"Libro '{libro.titulo}' agregado a cola de ingreso de {self.nombre}")
 
     def procesar_ingreso(self) -> bool:
-        """
-        Procesa un libro de la cola de ingreso.
-        Decide si va al catalogo local o a la cola de traspaso.
-        Retorna True si proceso algo, False si la cola estaba vacia.
-        """
         if self.cola_ingreso.esta_vacia():
             return False
         
@@ -132,21 +107,15 @@ class Biblioteca:
         
         if libro.biblioteca_destino == self.id or not libro.biblioteca_destino:
             self.agregar_libro_catalogo(libro)
-            print(f"Libro '{libro.titulo}' agregado al catalogo de {self.nombre}")
         else:
             libro.cambiar_estado("en_transito")
             self.cola_traspaso.encolar(libro)
-            print(f"Libro '{libro.titulo}' movido a cola de traspaso en {self.nombre}")
         
         fin = time.perf_counter()
         self.estadisticas["tiempo_total_procesamiento"] += fin - inicio
         return True
 
     def procesar_traspaso(self) -> bool:
-        """
-        Prepara un libro para ser enviado (cola traspaso -> cola salida).
-        Retorna True si proceso algo, False si la cola estaba vacia.
-        """
         if self.cola_traspaso.esta_vacia():
             return False
         
@@ -156,15 +125,9 @@ class Biblioteca:
         fin = time.perf_counter()
         self.estadisticas["tiempo_total_procesamiento"] += fin - inicio
         
-        print(f"Libro '{libro.titulo}' preparado para envio desde {self.nombre}")
-        
         return True
 
     def procesar_salida(self) -> Optional[Libro]:
-        """
-        Despacha un libro si ha pasado el intervalo de despacho.
-        Retorna el libro despachado o None si no se puede despachar.
-        """
         tiempo_actual = time.time()
         
         if (tiempo_actual - self.ultimo_despacho) < self.intervalo_despacho:
@@ -181,27 +144,19 @@ class Biblioteca:
         fin = time.perf_counter()
         self.estadisticas["tiempo_total_procesamiento"] += fin - inicio
         
-        print(f"Libro '{libro.titulo}' despachado desde {self.nombre}")
         return libro
 
     def registrar_recepcion(self, libro: Libro) -> None:
-        """
-        Registra la llegada de un libro proveniente de otra biblioteca.
-        """
         libro.biblioteca_destino = self.id
         self.agregar_libro_catalogo(libro, registrar_rollback=True, contar_ingreso=False)
         self.estadisticas["libros_recibidos"] += 1
-        print(f"Libro '{libro.titulo}' recibido en {self.nombre}")
 
     def obtener_libro_por_isbn(self, isbn: str) -> Optional[Libro]:
-        """Busca un libro en el catalogo local por ISBN."""
         return self.catalogo_local.buscar_por_isbn(isbn)
 
     def eliminar_libro_catalogo(self, isbn: str) -> bool:
-        """Elimina un libro del catalogo local y registra para rollback."""
         libro = self.obtener_libro_por_isbn(isbn)
         if libro:
-            # Registrar eliminación para rollback
             operacion = {"tipo": "eliminar", "libro": libro}
             self.pila_rollback.apilar(operacion)
             
@@ -211,37 +166,31 @@ class Biblioteca:
         return False
 
     def rollback_ultima_operacion(self) -> Optional[str]:
-        """Deshace la última operación (agregar, eliminar o actualizar)."""
         if self.pila_rollback.esta_vacia():
             return "No hay operaciones para deshacer"
         
         operacion = self.pila_rollback.desapilar()
         
         if operacion["tipo"] == "agregar":
-            # Deshacer agregación = eliminar
             libro = operacion["libro"]
             self.catalogo_local.eliminar_libro(libro.isbn)
             self._actualizar_inventario(libro, -1)
             return f"Se deshizo la agregación de '{libro.titulo}'"
             
         elif operacion["tipo"] == "eliminar":
-            # Deshacer eliminación = volver a agregar
             libro = operacion["libro"]
             self.catalogo_local.agregar_libro(libro)
             self._actualizar_inventario(libro, 1)
             return f"Se deshizo la eliminación de '{libro.titulo}'"
 
         elif operacion["tipo"] == "actualizar":
-            # Deshacer actualización = restaurar el libro anterior
             libro_anterior = operacion["libro_anterior"]
             libro_modificado = operacion["libro_nuevo"]
             
-            # Recalcular inventario si el género cambió durante la actualización
             if libro_anterior.genero != libro_modificado.genero:
-                self._actualizar_inventario(libro_modificado, -1) # Decrementar el modificado
-                self._actualizar_inventario(libro_anterior, 1)    # Incrementar el anterior
+                self._actualizar_inventario(libro_modificado, -1)
+                self._actualizar_inventario(libro_anterior, 1)
                 
-            # Llamar a actualizar libro, pero sin registrar un nuevo rollback
             datos_restauracion = {
                 "titulo": libro_anterior.titulo,
                 "autor": libro_anterior.autor,
@@ -251,15 +200,10 @@ class Biblioteca:
                 "biblioteca_destino": libro_anterior.biblioteca_destino,
                 "estado": libro_anterior.estado,
             }
-            # Se usa el método interno del catalogo para forzar la restauración
             self.catalogo_local.actualizar_libro(libro_anterior.isbn, datos_restauracion)
             return f"Se deshizo la actualización de '{libro_anterior.titulo}'"
 
     def ordenar_catalogo(self, metodo: str = "quick_sort", clave: str = "titulo") -> None:
-        """
-        Ordena el catalogo local usando uno de los 5 metodos.
-        metodo: "burbuja", "seleccion", "insercion", "shell_sort", "quick_sort"
-        """
         from estructuras.metodos_ordenamiento import burbuja, seleccion, insercion, shell_sort, quick_sort
         
         metodos = {
@@ -271,7 +215,6 @@ class Biblioteca:
         }
         
         if metodo not in metodos:
-            print(f"Metodo invalido: {metodo}")
             return
         
         libros_lista = []
@@ -287,7 +230,6 @@ class Biblioteca:
             print(f"  - {getattr(libro, clave)}: {libro.titulo}")
 
     def comparar_metodos_ordenamiento(self, clave: str = "titulo") -> None:
-        """Compara los 5 metodos de ordenamiento en el catalogo local."""
         libros_lista = []
         actual = self.catalogo_local.lista_secuencial.cabeza
         while actual:
@@ -302,7 +244,6 @@ class Biblioteca:
         comparar_metodos(libros_lista, clave)
 
     def obtener_estado_colas(self) -> dict:
-        """Retorna el estado actual de las 3 colas."""
         return {
             "ingreso": {
                 "cantidad": self.cola_ingreso.tamanio,
@@ -319,7 +260,6 @@ class Biblioteca:
         }
 
     def mostrar_estado(self) -> None:
-        """Imprime el estado completo de la biblioteca."""
         print("\n" + "=" * 80)
         print(f"ESTADO DE BIBLIOTECA: {self.nombre} ({self.id})")
         print("=" * 80)

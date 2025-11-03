@@ -14,7 +14,6 @@ from estructuras.pila import Pila
 
 
 class Coleccion:
-    """Agrupa libros por temática. Permite ISBN duplicados dentro de la misma colección."""
     def __init__(self, nombre: str, descripcion: str = ""):
         self.nombre = nombre
         self.descripcion = descripcion
@@ -23,10 +22,6 @@ class Coleccion:
 
 
 class ControladorCatalogo:
-    """
-    Controlador de catalogo de libros.
-    Maneja las diferentes estructuras de datos para un conjunto de libros.
-    """
     def __init__(self):
         self.lista_secuencial = ListaLibros()
         self.arbol_titulos = ArbolAVL()
@@ -41,7 +36,6 @@ class ControladorCatalogo:
     # Accesores para GUI / Visualizaciones
     # -----------------------
     def obtener_estructura(self, clave: str):
-        """Retorna la estructura solicitada para visualizacion."""
         mapa = {
             "avl": self.arbol_titulos,
             "b": self.arbol_fechas,
@@ -52,7 +46,6 @@ class ControladorCatalogo:
         return mapa.get(clave.lower())
 
     def exportar_estructura_dot(self, clave: str, archivo_dot: str) -> None:
-        """Genera un archivo DOT de la estructura solicitada."""
         estructura = self.obtener_estructura(clave)
         if not estructura or not hasattr(estructura, "exportar_dot"):
             raise ValueError(f"Estructura '{clave}' no soportada para exportacion DOT")
@@ -63,7 +56,6 @@ class ControladorCatalogo:
     # -----------------------
    
     def agregar_libro(self, libro: Libro, nombre_coleccion: str = "General") -> None:
-        """Agrega un libro a todas las estructuras de datos"""
         
         if not libro.titulo or not libro.autor or not libro.genero:
             print("Error: Todos los campos son obligatorios.")
@@ -99,13 +91,6 @@ class ControladorCatalogo:
     
     
     def actualizar_libro(self, isbn: str, nuevos_datos: dict, registrar_rollback: bool = True) -> Libro:
-        """
-        Actualiza un libro manteniendo SINCRONIZACIÓN en todas las estructuras.
-        
-        Returns:
-            Libro actualizado si éxito, None si falla
-        """
-        # Buscar libro actual
         libro_actual = self.tabla_isbn.buscar(isbn)
         if not libro_actual:
             return None 
@@ -216,18 +201,15 @@ class ControladorCatalogo:
         return resultados
 
     def listar_por_titulo_ordenado(self) -> List[Libro]:
-        """Retorna lista de libros ordenados por título (usando AVL inorder)."""
         return self.arbol_titulos.inorder()
 
     def obtener_generos_unicos(self) -> List[str]:
-        """Retorna lista de géneros únicos ordenados."""
         return self.arbol_generos.obtener_generos()
 
     # -----------------------
     # Operaciones con Pilas
     # -----------------------
     def deshacer_ultima_operacion(self) -> bool:
-        """Deshace la última operación (agregar/eliminar/actualizar)."""
         if self.pila_operaciones.esta_vacia():
             print("No hay operaciones para deshacer.")
             return False
@@ -270,7 +252,6 @@ class ControladorCatalogo:
             libro_actual = operacion_tuple[2]
             print(f"Deshaciendo actualización de: {libro_original.titulo}")
 
-            # Restaurar el estado del objeto Libro (por referencia)
             datos_restauracion = {
                 "titulo": libro_original.titulo,
                 "autor": libro_original.autor,
@@ -282,19 +263,16 @@ class ControladorCatalogo:
                 "prioridad": libro_original.prioridad
             }
             
-            # Usar actualizar_libro sin registrar rollback para restaurar
             self.actualizar_libro(libro_original.isbn, datos_restauracion, registrar_rollback=False)
             
         return True
 
     def apilar_devolucion(self, libro: Libro) -> None:
-        """Apila un libro devuelto."""
         self.pila_devoluciones.push(libro)
         libro.estado = "disponible"
         print(f"Libro apilado en devoluciones: {libro.titulo}")
 
     def obtener_devoluciones(self) -> List[Libro]:
-        """Retorna lista de libros en pila de devoluciones."""
         libros = []
         actual = self.pila_devoluciones.tope
         while actual:
@@ -306,9 +284,6 @@ class ControladorCatalogo:
     # Importación CSV
     # -----------------------
     def cargar_desde_csv(self, ruta_archivo: str, nombre_coleccion: str = "General", red_bibliotecas=None) -> int:
-        """
-        Carga libros desde CSV con 9 campos.
-        """
         ruta = Path(ruta_archivo)
         if not ruta.exists():
             print(f"Error: El archivo {ruta_archivo} no existe.")
@@ -413,9 +388,6 @@ class ControladorCatalogo:
         print("Archivos generados en carpeta 'graficos_arboles/'")
 
     def _generar_grafica_desde_dot(self, archivo_base: str) -> None:
-        """
-        Ejecuta Graphviz 'dot' para generar PNG y SVG desde .dot.
-        """
         dot_file = Path(f"{archivo_base}.dot")
         png_file = Path(f"{archivo_base}.png")
         svg_file = Path(f"{archivo_base}.svg")
