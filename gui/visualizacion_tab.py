@@ -50,9 +50,9 @@ class VisualizacionTab:
             return
         self.canvas.bind("<ButtonPress-1>", self._iniciar_arrastre)
         self.canvas.bind("<B1-Motion>", self._arrastrar)
-        self.canvas.bind("<MouseWheel>", self._zoom_rodillo)          # Windows / macOS
-        self.canvas.bind("<Button-4>", self._zoom_scroll_arriba)      # Linux scroll up
-        self.canvas.bind("<Button-5>", self._zoom_scroll_abajo)       # Linux scroll down
+        self.canvas.bind("<MouseWheel>", self._zoom_rodillo)
+        self.canvas.bind("<Button-4>", self._zoom_scroll_arriba)
+        self.canvas.bind("<Button-5>", self._zoom_scroll_abajo)
 
     def _iniciar_arrastre(self, event):
         self.canvas.scan_mark(event.x, event.y)
@@ -79,7 +79,7 @@ class VisualizacionTab:
             return
         self.zoom_factor = nuevo_zoom
         self._renderizar_imagen()
-        self.canvas.scale("all", x, y, 1, 1)  # mantener posición relativa
+        self.canvas.scale("all", x, y, 1, 1)
 
     def _limpiar_canvas(self):
         if self.canvas:
@@ -106,7 +106,6 @@ class VisualizacionTab:
                     raise ValueError("No hay bibliotecas cargadas")
                 biblioteca = next(iter(self.red_bibliotecas.bibliotecas.values()))
                 biblioteca.exportar_colas_dot(self._temp_dir)
-                # mostramos solo ingreso por defecto
                 archivo_dot = os.path.join(self._temp_dir, f"{biblioteca.id}_cola_ingreso.dot")
             else:
                 biblioteca = self._obtener_biblioteca_referencia()
@@ -128,6 +127,106 @@ class VisualizacionTab:
             raise RuntimeError(error.stderr.decode("utf-8", errors="ignore") or str(error))
         return ruta_png
 
+    def _mostrar_estadisticas_hash(self, biblioteca):
+        """Muestra estadísticas detalladas de la tabla hash"""
+        if not hasattr(biblioteca.catalogo_local, 'tabla_isbn'):
+            return
+        
+        hash_table = biblioteca.catalogo_local.tabla_isbn
+        
+        colisiones = 0
+        max_cadena = 0
+        buckets_usados = 0
+        
+        for bucket in hash_table.tabla:
+            if bucket:
+                buckets_usados += 1
+                longitud = 0
+                actual = bucket
+                while actual:
+                    longitud += 1
+                    actual = actual.siguiente
+                if longitud > 1:
+                    colisiones += longitud - 1
+                max_cadena = max(max_cadena, longitud)
+        
+        factor_carga = hash_table.cantidad / hash_table.capacidad
+        buckets_vacios = hash_table.capacidad - buckets_usados
+        
+        ventana_stats = tk.Toplevel()
+        ventana_stats.title("Estadísticas Tabla Hash")
+        ventana_stats.geometry("500x400")
+        ventana_stats.resizable(False, False)
+        
+        tk.Label(ventana_stats, text="ANÁLISIS DE TABLA HASH", 
+                 font=FONT_TITLE_MEDIUM, fg=TITLE_COLOR).pack(pady=15)
+        
+        stats_frame = ttk.Frame(ventana_stats, padding=20)
+        stats_frame.pack(fill='both', expand=True)
+        
+        ttk.Label(stats_frame, text="INFORMACIÓN GENERAL", 
+                  font=FONT_TITLE_SMALL).grid(row=0, column=0, columnspan=2, pady=(0,10), sticky='w')
+        
+        ttk.Label(stats_frame, text="Capacidad total:").grid(row=1, column=0, sticky='w', pady=2)
+        ttk.Label(stats_frame, text=f"{hash_table.capacidad}").grid(row=1, column=1, sticky='w', padx=(20,0), pady=2)
+        
+        ttk.Label(stats_frame, text="Elementos almacenados:").grid(row=2, column=0, sticky='w', pady=2)
+        ttk.Label(stats_frame, text=f"{hash_table.cantidad}").grid(row=2, column=1, sticky='w', padx=(20,0), pady=2)
+        
+        ttk.Label(stats_frame, text="Factor de carga:").grid(row=3, column=0, sticky='w', pady=2)
+        color_factor = "green" if factor_carga <= 0.75 else "orange" if factor_carga <= 0.9 else "red"
+        ttk.Label(stats_frame, text=f"{factor_carga:.2%}", 
+                  foreground=color_factor).grid(row=3, column=1, sticky='w', padx=(20,0), pady=2)
+        
+        ttk.Separator(stats_frame, orient='horizontal').grid(row=4, column=0, columnspan=2, sticky='ew', pady=15)
+        
+        ttk.Label(stats_frame, text="ANÁLISIS DE COLISIONES", 
+                  font=FONT_TITLE_SMALL).grid(row=5, column=0, columnspan=2, pady=(0,10), sticky='w')
+        
+        ttk.Label(stats_frame, text="Buckets utilizados:").grid(row=6, column=0, sticky='w', pady=2)
+        ttk.Label(stats_frame, text=f"{buckets_usados}").grid(row=6, column=1, sticky='w', padx=(20,0), pady=2)
+        
+        ttk.Label(stats_frame, text="Buckets vacíos:").grid(row=7, column=0, sticky='w', pady=2)
+        ttk.Label(stats_frame, text=f"{buckets_vacios}").grid(row=7, column=1, sticky='w', padx=(20,0), pady=2)
+        
+        ttk.Label(stats_frame, text="Total de colisiones:").grid(row=8, column=0, sticky='w', pady=2)
+        color_colisiones = "green" if colisiones == 0 else "orange" if colisiones < 5 else "red"
+        ttk.Label(stats_frame, text=f"{colisiones}", 
+                  foreground=color_colisiones).grid(row=8, column=1, sticky='w', padx=(20,0), pady=2)
+        
+        ttk.Label(stats_frame, text="Cadena más larga:").grid(row=9, column=0, sticky='w', pady=2)
+        color_cadena = "green" if max_cadena <= 2 else "orange" if max_cadena <= 4 else "red"
+        ttk.Label(stats_frame, text=f"{max_cadena} elementos", 
+                  foreground=color_cadena).grid(row=9, column=1, sticky='w', padx=(20,0), pady=2)
+        
+        ttk.Separator(stats_frame, orient='horizontal').grid(row=10, column=0, columnspan=2, sticky='ew', pady=15)
+        
+        ttk.Label(stats_frame, text="EVALUACIÓN DE RENDIMIENTO", 
+                  font=FONT_TITLE_SMALL).grid(row=11, column=0, columnspan=2, pady=(0,10), sticky='w')
+        
+        if factor_carga <= 0.75 and colisiones <= 3:
+            estado = "EXCELENTE 🟢"
+            descripcion = "Rendimiento óptimo"
+            color_estado = "green"
+        elif factor_carga <= 0.85 and colisiones <= 8:
+            estado = "BUENO 🟡"
+            descripcion = "Rendimiento aceptable"
+            color_estado = "orange"
+        else:
+            estado = "NECESITA OPTIMIZACIÓN 🔴"
+            descripcion = "Considerar rehashing"
+            color_estado = "red"
+        
+        ttk.Label(stats_frame, text="Estado general:").grid(row=12, column=0, sticky='w', pady=2)
+        ttk.Label(stats_frame, text=estado, 
+                  foreground=color_estado).grid(row=12, column=1, sticky='w', padx=(20,0), pady=2)
+        
+        ttk.Label(stats_frame, text="Recomendación:").grid(row=13, column=0, sticky='w', pady=2)
+        ttk.Label(stats_frame, text=descripcion).grid(row=13, column=1, sticky='w', padx=(20,0), pady=2)
+        
+        ttk.Button(ventana_stats, text="Cerrar", 
+                   command=ventana_stats.destroy).pack(pady=20)
+
     def visualizar_estructura(self, estructura: str):
         if not self.canvas:
             return
@@ -135,6 +234,11 @@ class VisualizacionTab:
             ruta_dot = self._generar_dot(estructura)
             ruta_png = self._dot_a_png(ruta_dot)
             self._mostrar_imagen(ruta_png)
+            
+            if estructura == "hash":
+                biblioteca = self._obtener_biblioteca_referencia()
+                self._mostrar_estadisticas_hash(biblioteca)
+                
         except FileNotFoundError as error:
             messagebox.showwarning("Graphviz", str(error))
         except RuntimeError as error:
@@ -182,7 +286,7 @@ def crear_visualizacion_tab(notebook, red_bibliotecas):
 
     tk.Label(
         tab_visualizacion,
-        text="🌳 REPRESENTACIÓN GRÁFICA DE ESTRUCTURAS",
+        text="REPRESENTACIÓN GRÁFICA DE ESTRUCTURAS",
         font=FONT_TITLE_LARGE,
         fg=TITLE_COLOR,
         bg=FILTER_BG,
