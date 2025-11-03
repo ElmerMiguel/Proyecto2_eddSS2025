@@ -6,14 +6,26 @@ from tkinter import ttk, messagebox
 import threading
 import time
 import numpy as np
+import networkx as nx
+import math
 
 # === IMPORTACIONES PARA MATPLOTLIB ===
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 
+# Asume que 'config' es un módulo que contiene variables como FONT_TITLE_LARGE, ACCENT_COLOR, etc.
 from .config import *
 
+# === DEFINICIÓN DE COLORES DEL GRAFO (COPIADOS DE dibuja_grafo_colas) ===
+COLOR_INGRESO = '#4CAF50'  # Verde
+COLOR_TRASPASO = '#FF9800' # Naranja
+COLOR_SALIDA = '#F44336'   # Rojo
+
+COLOR_INACTIVO = '#E0E0E0' # Gris claro
+COLOR_BAJA = '#81C784'     # Verde claro (Baja Actividad)
+COLOR_MEDIA = '#FFB74D'    # Naranja claro (Media Actividad)
+COLOR_ALTA = '#F06292'     # Rosa (Alta Actividad)
 
 class SimulacionTab:
     """Controlador de la pestaña de Simulación"""
@@ -26,12 +38,15 @@ class SimulacionTab:
         self.colas_tree = None
         self.tab_root = None
         self._detener_event = threading.Event()
-        self.intervalo_tick = 1.5  # Reducido para mejor visualización
+        self.intervalo_tick = 1.5
         
         # Variables para Matplotlib
         self.fig = None
         self.ax = None
         self.canvas = None
+
+        # Cache para guardar posiciones del grafo (clave para estabilidad visual)
+        self._posiciones_grafo = None 
 
     def configurar_componentes(self, tab_root, metricas_label, colas_tree, fig, ax, canvas):
         """Configura las referencias a componentes de la interfaz"""
@@ -50,21 +65,71 @@ class SimulacionTab:
             return
         
         self.ax.clear()
-        self.ax.set_title('🌐 Red de Bibliotecas - Estado de Colas', fontsize=14, fontweight='bold')
-        self.ax.set_xlim(-1, 11)
-        self.ax.set_ylim(-1, 8)
-        self.ax.axis('off')  # Sin ejes para el grafo
+        self.ax.set_title('Red de Bibliotecas - Estado de Colas', fontsize=14, fontweight='bold', pad=5)
+        self.ax.axis('off')
         
-        bibliotecas = list(self.red_bibliotecas.bibliotecas.keys())
-        if not bibliotecas:
-            self.ax.text(5, 4, 'No hay bibliotecas cargadas', 
+        if not self.red_bibliotecas.bibliotecas:
+            self.ax.text(0.5, 0.5, 'No hay bibliotecas cargadas', 
                         ha='center', va='center', fontsize=14, 
                         bbox=dict(boxstyle="round,pad=0.3", facecolor="lightcoral"))
             self.canvas.draw()
             return
         
-        # Dibujar grafo inicial (sin datos de colas)
         self.dibujar_grafo_colas()
+
+    def _calcular_posiciones_grafo_nx(self, canvas_width=10, canvas_height=8):
+        """Calcula y escala las posiciones de los nodos usando un layout de fuerza dirigida."""
+        if self._posiciones_grafo is not None:
+            return self._posiciones_grafo
+        
+        nx_graph = nx.Graph()
+        
+        for bib_id in self.red_bibliotecas.bibliotecas.keys():
+            nx_graph.add_node(bib_id)
+        
+        for origen, aristas in self.red_bibliotecas.grafo.nodos.items():
+            for arista in aristas:
+                destino = arista.destino
+                # Evitar duplicados de aristas en grafo no dirigido
+                if origen < destino: 
+                    nx_graph.add_edge(origen, destino)
+
+        # Usar el layout 'spring' (Fuerza Dirigida)
+        pos = nx.spring_layout(nx_graph, seed=42, k=0.5, iterations=50) 
+        
+        if not pos:
+            return {}
+
+        all_x = [x for x, y in pos.values()]
+        all_y = [y for x, y in pos.values()]
+        
+        if not all_x or not all_y:
+            return {}
+
+        min_x, max_x = min(all_x), max(all_x)
+        min_y, max_y = min(all_y), max(all_y)
+        
+        range_x = max_x - min_x if max_x != min_x else 1
+        range_y = max_y - min_y if max_y != min_y else 1
+        
+        # Escalar para que se ajuste al área de (1, 1) a (9, 7) aprox.
+        target_width = canvas_width - 2
+        target_height = canvas_height - 2
+        
+        scale_x = target_width / range_x
+        scale_y = target_height / range_y
+        scale = min(scale_x, scale_y) 
+
+        scaled_pos = {}
+        for node, (x, y) in pos.items():
+            # Escalar y desplazar para centrar
+            scaled_x = 1 + (x - min_x) * scale
+            scaled_y = 1 + (y - min_y) * scale
+            scaled_pos[node] = (scaled_x, scaled_y)
+        
+        self._posiciones_grafo = scaled_pos
+        return scaled_pos
+
 
     def dibujar_grafo_colas(self):
         """Dibuja el grafo de bibliotecas con estado de colas en cada nodo"""
@@ -72,119 +137,126 @@ class SimulacionTab:
             return
         
         self.ax.clear()
-        self.ax.set_title('🌐 Red de Bibliotecas - Estado de Colas en Tiempo Real', 
-                         fontsize=14, fontweight='bold')
-        self.ax.set_xlim(-1, 11)
-        self.ax.set_ylim(-1, 8)
+        self.ax.set_title('Red de Bibliotecas - Estado de Colas en Tiempo Real', 
+                         fontsize=14, fontweight='bold', pad=5) 
+        
+        # Establecer límites del plot (coordenadas para el grafo)
+        self.ax.set_xlim(0, 10)
+        self.ax.set_ylim(0, 8)
         self.ax.axis('off')
         
         bibliotecas = list(self.red_bibliotecas.bibliotecas.keys())
         if not bibliotecas:
             return
         
-        # Posiciones fijas para nodos (distribución circular)
-        num_bibliotecas = len(bibliotecas)
-        centro_x, centro_y = 5, 3.5
-        radio = 2.5
-        
-        posiciones = {}
-        for i, bib_id in enumerate(bibliotecas):
-            angulo = 2 * 3.14159 * i / num_bibliotecas
-            x = centro_x + radio * np.cos(angulo)
-            y = centro_y + radio * np.sin(angulo)
-            posiciones[bib_id] = (x, y)
+        try:
+            posiciones = self._calcular_posiciones_grafo_nx(canvas_width=10, canvas_height=8)
+        except Exception as e:
+            self.ax.text(5, 4, f"Error NX: {e}", ha='center', va='center', color='red')
+            self.canvas.draw()
+            return
+
+        radio_nodo = 0.5 
         
         # 1. DIBUJAR CONEXIONES (ARISTAS)
         grafo = self.red_bibliotecas.grafo
+        aristas_dibujadas = set()
+
         for origen in grafo.nodos:
             for arista in grafo.nodos[origen]:
                 destino = arista.destino
+                
+                arista_tuple = tuple(sorted((origen, destino)))
+                if arista_tuple in aristas_dibujadas:
+                    continue
+                aristas_dibujadas.add(arista_tuple)
+                
                 if origen in posiciones and destino in posiciones:
                     x1, y1 = posiciones[origen]
                     x2, y2 = posiciones[destino]
                     
-                    # Línea de conexión
-                    self.ax.plot([x1, x2], [y1, y2], 'b-', alpha=0.6, linewidth=2)
+                    self.ax.plot([x1, x2], [y1, y2], 'b-', alpha=0.6, linewidth=2, zorder=1)
                     
-                    # Etiqueta de peso en la conexión
                     mid_x, mid_y = (x1 + x2) / 2, (y1 + y2) / 2
-                    self.ax.text(mid_x, mid_y, f"T:{arista.tiempo//60}m\nC:{arista.costo:.0f}", 
-                               ha='center', va='center', fontsize=8, 
-                               bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.8))
+                    
+                    try:
+                        angulo = math.atan2(y2 - y1, x2 - x1)
+                    except: 
+                        angulo = 0
+
+                    distancia = 0.35
+                    
+                    offset_x = distancia * math.sin(angulo)
+                    offset_y = -distancia * math.cos(angulo)
+                         
+                    self.ax.text(mid_x + offset_x, mid_y + offset_y, 
+                                 f"T:{arista.tiempo//60}m C:{arista.costo:.0f}", 
+                                 ha='center', va='center', fontsize=8, zorder=2,
+                                 bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.9))
         
         # 2. DIBUJAR NODOS (BIBLIOTECAS CON COLAS)
         for bib_id, (x, y) in posiciones.items():
             biblioteca = self.red_bibliotecas.bibliotecas[bib_id]
             estado_colas = biblioteca.obtener_estado_colas()
             
-            # Datos de las colas
             ing = estado_colas["ingreso"]["cantidad"]
             tras = estado_colas["traspaso"]["cantidad"] 
             sal = estado_colas["salida"]["cantidad"]
             
-            # Color del nodo según actividad
             total_libros = ing + tras + sal
             if total_libros == 0:
-                color_nodo = '#E0E0E0'  # Gris - inactivo
+                color_nodo = COLOR_INACTIVO
+                actividad_texto = "Inactivo"
             elif total_libros <= 2:
-                color_nodo = '#81C784'  # Verde - poca actividad
+                color_nodo = COLOR_BAJA
+                actividad_texto = "Baja"
             elif total_libros <= 5:
-                color_nodo = '#FFB74D'  # Naranja - actividad media
+                color_nodo = COLOR_MEDIA
+                actividad_texto = "Media"
             else:
-                color_nodo = '#F06292'  # Rosa - alta actividad
+                color_nodo = COLOR_ALTA
+                actividad_texto = "Alta"
             
             # NODO PRINCIPAL (círculo grande)
-            circle = plt.Circle((x, y), 0.6, color=color_nodo, alpha=0.8, zorder=3)
+            circle = plt.Circle((x, y), radio_nodo, color=color_nodo, alpha=0.8, zorder=3)
             self.ax.add_patch(circle)
             
-            # ETIQUETA DE BIBLIOTECA
             self.ax.text(x, y + 0.1, bib_id, ha='center', va='center', 
-                        fontsize=12, fontweight='bold', zorder=4)
+                        fontsize=11, fontweight='bold', zorder=4)
             
-            # COLAS COMO MINI-CÍRCULOS ALREDEDOR
-            # Cola Ingreso (izquierda)
-            ing_circle = plt.Circle((x - 0.8, y), 0.2, 
-                                   color='#4CAF50', alpha=0.9, zorder=4)
-            self.ax.add_patch(ing_circle)
-            self.ax.text(x - 0.8, y, str(ing), ha='center', va='center', 
-                        fontsize=10, fontweight='bold', color='white', zorder=5)
+            self.ax.text(x, y - 0.25, actividad_texto, ha='center', va='center', 
+                        fontsize=7, color='black', zorder=4)
             
-            # Cola Traspaso (arriba)
-            tras_circle = plt.Circle((x, y + 0.8), 0.2, 
-                                    color='#FF9800', alpha=0.9, zorder=4)
-            self.ax.add_patch(tras_circle)
-            self.ax.text(x, y + 0.8, str(tras), ha='center', va='center', 
-                        fontsize=10, fontweight='bold', color='white', zorder=5)
+            radio_cola = 0.2
+            offset = radio_nodo + radio_cola + 0.1
             
-            # Cola Salida (derecha)
-            sal_circle = plt.Circle((x + 0.8, y), 0.2, 
-                                   color='#F44336', alpha=0.9, zorder=4)
-            self.ax.add_patch(sal_circle)
-            self.ax.text(x + 0.8, y, str(sal), ha='center', va='center', 
-                        fontsize=10, fontweight='bold', color='white', zorder=5)
+            # Cola Ingreso: Usamos 'I' en el centro
+            self.ax.plot(x - offset, y, 'o', ms=10, color=COLOR_INGRESO, alpha=0.9, zorder=4)
+            self.ax.text(x - offset, y, f"I:{ing}", ha='center', va='center', 
+                        fontsize=8, fontweight='bold', color='white', zorder=5)
             
-            # Nombre de biblioteca (abajo del nodo)
-            self.ax.text(x, y - 0.9, biblioteca.nombre[:15], ha='center', va='center', 
-                        fontsize=9, alpha=0.8)
-        
-        # 3. LEYENDA
-        leyenda_x, leyenda_y = 0.5, 6.5
-        self.ax.text(leyenda_x, leyenda_y, "🟢 Ingreso  🟠 Traspaso  🔴 Salida", 
-                    fontsize=11, ha='left', va='top',
-                    bbox=dict(boxstyle="round,pad=0.5", facecolor="lightblue", alpha=0.8))
-        
-        # Estado de actividad
-        self.ax.text(leyenda_x, leyenda_y - 0.8, 
-                    "🔘 Inactivo  🟢 Baja  🟠 Media  🔴 Alta Actividad", 
-                    fontsize=10, ha='left', va='top',
-                    bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", alpha=0.8))
+            # Cola Traspaso: Usamos 'T' en el centro
+            self.ax.plot(x, y + offset, 'o', ms=10, color=COLOR_TRASPASO, alpha=0.9, zorder=4)
+            self.ax.text(x, y + offset, f"T:{tras}", ha='center', va='center', 
+                        fontsize=8, fontweight='bold', color='white', zorder=5)
+            
+            # Cola Salida: Usamos 'S' en el centro
+            self.ax.plot(x + offset, y, 'o', ms=10, color=COLOR_SALIDA, alpha=0.9, zorder=4)
+            self.ax.text(x + offset, y, f"S:{sal}", ha='center', va='center', 
+                        fontsize=8, fontweight='bold', color='white', zorder=5)
+            
+            self.ax.text(x, y - offset - radio_cola - 0.1, biblioteca.nombre[:15], 
+                        ha='center', va='center', fontsize=9, alpha=0.8)
         
         self.canvas.draw()
 
     def actualizar_grafico(self):
         """Actualiza el gráfico con datos en tiempo real"""
-        # Simplemente redibujar todo el grafo con datos actualizados
         self.dibujar_grafo_colas()
+
+    # ---------------------------------------------------------------------
+    # MÉTODOS DE SIMULACIÓN Y AUXILIARES
+    # ---------------------------------------------------------------------
 
     def iniciar_simulacion(self):
         """Inicia la simulación en un hilo separado"""
@@ -196,10 +268,11 @@ class SimulacionTab:
             messagebox.showwarning("Advertencia", "No hay bibliotecas cargadas para simular")
             return
         
+        self._posiciones_grafo = None 
+
         self.simulacion_activa = True
         self._detener_event.clear()
         
-        # Crear y iniciar hilo de simulación
         self.simulacion_thread = threading.Thread(target=self._ejecutar_simulacion, daemon=True)
         self.simulacion_thread.start()
         
@@ -216,7 +289,6 @@ class SimulacionTab:
         self._detener_event.set()
         
         if self.simulacion_thread and self.simulacion_thread.is_alive():
-            # Esperar a que termine el hilo (máximo 2 segundos)
             self.simulacion_thread.join(timeout=2)
         
         self.actualizar_estado("Estado: Simulación pausada")
@@ -226,16 +298,14 @@ class SimulacionTab:
         """Hilo principal de simulación con criterio de parada"""
         try:
             ticks_sin_actividad = 0
-            max_ticks_inactivos = 10  # Parar tras 10 ticks sin actividad
+            max_ticks_inactivos = 10
             
             while self.simulacion_activa and not self._detener_event.is_set():
-                # Verificar si hay actividad
                 hay_actividad = self._hay_actividad_en_red()
                 
                 if not hay_actividad:
                     ticks_sin_actividad += 1
                     if ticks_sin_actividad >= max_ticks_inactivos:
-                        # Parar simulación automáticamente
                         self.simulacion_activa = False
                         if self.tab_root:
                             self.tab_root.after(0, lambda: self._finalizar_simulacion_automatica())
@@ -243,10 +313,8 @@ class SimulacionTab:
                 else:
                     ticks_sin_actividad = 0
                 
-                # Procesar tick
                 self._procesar_tick_simulacion()
                 
-                # Actualizar interfaz
                 if self.tab_root:
                     self.tab_root.after(0, lambda: self.actualizar_estado("Estado: En ejecución"))
                 
@@ -277,61 +345,35 @@ class SimulacionTab:
     def _procesar_tick_simulacion(self):
         """Procesa un ciclo de simulación (mueve libros entre colas)"""
         try:
-            # Iterar sobre todas las bibliotecas
             for biblioteca in self.red_bibliotecas.bibliotecas.values():
-                # Simular procesamiento de colas
                 self._simular_procesamiento_biblioteca(biblioteca)
-                
-            # Simular transferencias entre bibliotecas
             self._simular_transferencias_activas()
-            
         except Exception as e:
             print(f"Error procesando tick de simulación: {e}")
 
     def _simular_procesamiento_biblioteca(self, biblioteca):
         """Simula el procesamiento de libros en las colas de una biblioteca"""
         try:
-            # Procesar cola de ingreso (mover a catálogo)
             if not biblioteca.cola_ingreso.esta_vacia():
-                # Probabilidad 30% de procesar libro de ingreso
                 if np.random.random() < 0.3:
                     item = biblioteca.cola_ingreso.desencolar()
-                    
-                    # ✅ VERIFICAR QUE SEA UN OBJETO LIBRO
                     if hasattr(item, 'titulo') and hasattr(item, 'isbn'):
-                        # Es un libro real
                         item.cambiar_estado("disponible")
                         biblioteca.agregar_libro_catalogo(item, registrar_rollback=False, contar_ingreso=False)
-                    else:
-                        # Es un string u otro objeto, ignorar
-                        print(f"Item procesado en ingreso: {type(item)}")
             
-            # Procesar cola de salida (completar transferencia)
             if not biblioteca.cola_salida.esta_vacia():
-                # Probabilidad 40% de despachar libro
                 if np.random.random() < 0.4:
                     item = biblioteca.cola_salida.desencolar()
-                    
-                    # ✅ VERIFICAR QUE SEA UN OBJETO LIBRO
                     if hasattr(item, 'titulo'):
                         self._completar_transferencia_simulada(item)
-                    else:
-                        print(f"Item procesado en salida: {type(item)}")
             
-            # Procesar cola de traspaso (mover a cola de salida)
             if not biblioteca.cola_traspaso.esta_vacia():
-                # Probabilidad 50% de procesar traspaso
                 if np.random.random() < 0.5:
                     item = biblioteca.cola_traspaso.desencolar()
-                    
-                    # ✅ VERIFICAR QUE SEA UN OBJETO LIBRO
                     if hasattr(item, 'titulo'):
                         biblioteca.cola_salida.encolar(item)
-                    else:
-                        print(f"Item procesado en traspaso: {type(item)}")
             
-            # Generar nuevas transferencias ocasionalmente
-            if np.random.random() < 0.15:  # 15% de probabilidad
+            if np.random.random() < 0.15:
                 self._generar_transferencia_aleatoria(biblioteca)
                 
         except Exception as e:
@@ -340,12 +382,9 @@ class SimulacionTab:
     def _simular_transferencias_activas(self):
         """Simula el progreso de transferencias en curso"""
         try:
-            # Iterar sobre bibliotecas y simular llegada de transferencias
             for biblioteca in self.red_bibliotecas.bibliotecas.values():
-                # Probabilidad 20% de recibir una transferencia simulada
                 if np.random.random() < 0.2:
                     self._simular_llegada_transferencia(biblioteca)
-                    
         except Exception as e:
             print(f"Error simulando transferencias: {e}")
 
@@ -354,16 +393,12 @@ class SimulacionTab:
         try:
             if hasattr(libro, 'titulo'):
                 libro.cambiar_estado("disponible")
-                print(f"Transferencia completada: {libro.titulo}")
-            else:
-                print(f"Transferencia completada: {libro}")
         except Exception as e:
             print(f"Error completando transferencia: {e}")
 
     def _generar_transferencia_aleatoria(self, biblioteca_origen):
         """Genera una transferencia aleatoria para simular actividad"""
         try:
-            # Obtener libros disponibles REALES
             libros_disponibles = biblioteca_origen.catalogo_local.lista_secuencial.mostrar_todos()
             libros_disponibles = [libro for libro in libros_disponibles 
                                 if hasattr(libro, 'estado') and libro.estado == "disponible"]
@@ -371,13 +406,8 @@ class SimulacionTab:
             if not libros_disponibles:
                 return
             
-            # Seleccionar libro aleatorio REAL
             libro = np.random.choice(libros_disponibles)
-            
-            # ✅ CORRECCIÓN: Agregar el OBJETO LIBRO, no un string
             biblioteca_origen.cola_traspaso.encolar(libro)
-            
-            # Cambiar estado del libro
             libro.cambiar_estado("en_transito")
             
         except Exception as e:
@@ -386,27 +416,19 @@ class SimulacionTab:
     def _simular_llegada_transferencia(self, biblioteca):
         """Simula que llega una transferencia a una biblioteca"""
         try:
-            # ✅ CORRECCIÓN: Solo simular si hay libros disponibles para transferir
             todas_las_bibliotecas = list(self.red_bibliotecas.bibliotecas.values())
             
             for otra_biblioteca in todas_las_bibliotecas:
                 if otra_biblioteca.id != biblioteca.id:
-                    # Obtener libros en tránsito hacia esta biblioteca
                     libros_otras = otra_biblioteca.catalogo_local.lista_secuencial.mostrar_todos()
                     libros_en_transito = [libro for libro in libros_otras 
                                         if hasattr(libro, 'estado') and libro.estado == "en_transito"]
                     
                     if libros_en_transito:
-                        # Seleccionar uno aleatorio y "transferirlo"
                         libro = np.random.choice(libros_en_transito)
-                        
-                        # Mover libro a cola de ingreso del destino
                         biblioteca.cola_ingreso.encolar(libro)
-                        
-                        # Remover de biblioteca origen (simular transferencia)
                         otra_biblioteca.catalogo_local.lista_secuencial.eliminar(libro)
-                        
-                        break  # Solo una transferencia por tick
+                        break
                         
         except Exception as e:
             print(f"Error simulando llegada de transferencia: {e}")
@@ -414,7 +436,6 @@ class SimulacionTab:
     def actualizar_estado(self, texto_estado: str = None):
         """Refresca métricas, tabla Y gráfico"""
         try:
-            # Calcular estadísticas
             total_transferencias = 0
             total_en_transito = 0
             
@@ -425,13 +446,11 @@ class SimulacionTab:
             
             estado = texto_estado or ("Estado: En ejecución" if self.simulacion_activa else "Estado: Detenido")
             
-            # Actualizar métricas
             if self.metricas_label:
                 self.metricas_label.config(
                     text=f"{estado} | Transferencias activas: {total_transferencias} | Libros en tránsito: {total_en_transito}"
                 )
             
-            # Actualizar tabla
             if self.colas_tree:
                 self.colas_tree.delete(*self.colas_tree.get_children())
                 for bib_id, biblioteca in self.red_bibliotecas.bibliotecas.items():
@@ -447,7 +466,6 @@ class SimulacionTab:
                             estado_colas["salida"]["frente"] or "-"
                         ))
             
-            # Actualizar gráfico Matplotlib
             self.actualizar_grafico()
             
         except Exception as e:
@@ -460,9 +478,9 @@ def crear_simulacion_tab(notebook, red_bibliotecas):
     tab_simulacion = ttk.Frame(notebook, style='Sky.TFrame')
     notebook.add(tab_simulacion, text="📦 Simulación y Colas")
     
-    # Grid de 2 columnas: izquierda (controles+tabla), derecha (gráfico)
-    tab_simulacion.grid_columnconfigure(0, weight=1)  # Controles y tabla
-    tab_simulacion.grid_columnconfigure(1, weight=1)  # Gráfico matplotlib
+    # Grid de 2 columnas
+    tab_simulacion.grid_columnconfigure(0, weight=1)
+    tab_simulacion.grid_columnconfigure(1, weight=1)
     tab_simulacion.grid_rowconfigure(1, weight=1)
     
     ctrl = SimulacionTab(red_bibliotecas)
@@ -502,11 +520,9 @@ def crear_simulacion_tab(notebook, red_bibliotecas):
     tk.Label(colas_container, text="🚦 ESTADO DETALLADO DE COLAS", 
              font=FONT_TITLE_LARGE, fg=ACCENT_COLOR, bg=FILTER_BG).pack(pady=5)
     
-    # Configurar tabla
     columnas = ("nombre", "ingreso", "traspaso", "salida", "frente_ing", "frente_tra", "frente_sal")
     colas_tree = ttk.Treeview(colas_container, columns=columnas, show="tree headings", height=8)
     
-    # Configurar encabezados
     colas_tree.heading("#0", text="ID")
     colas_tree.column("#0", width=80, anchor="center")
     
@@ -517,7 +533,6 @@ def crear_simulacion_tab(notebook, red_bibliotecas):
         colas_tree.heading(col, text=texto)
         colas_tree.column(col, width=ancho, anchor="center")
     
-    # Scrollbar para tabla
     tree_scroll = ttk.Scrollbar(colas_container, orient="vertical", command=colas_tree.yview)
     colas_tree.configure(yscrollcommand=tree_scroll.set)
     
@@ -528,9 +543,54 @@ def crear_simulacion_tab(notebook, red_bibliotecas):
     panel_derecho = ttk.Frame(tab_simulacion, style='Sky.TFrame', padding=10)
     panel_derecho.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=5, pady=5)
     
+    # Título de Visualización
     tk.Label(panel_derecho, text="📊 VISUALIZACIÓN EN TIEMPO REAL", 
              font=FONT_TITLE_LARGE, fg=ACCENT_COLOR, bg=FILTER_BG).pack(pady=5)
     
+    # NUEVA SECCIÓN DE LEYENDA (Texto en color con borde)
+    leyenda_frame = ttk.Frame(panel_derecho, style='Sky.TFrame', padding=5)
+    leyenda_frame.pack(fill="x", padx=5, pady=(0, 5))
+    
+    def crear_label_leyenda_color(parent, text_color, text_content, is_bold=False):
+        """Crea una etiqueta con el texto del color y un borde fuerte."""
+        font_style = ('TkDefaultFont', 10, 'bold' if is_bold else '')
+        
+        # Usamos tk.Label para poder especificar el color de texto (fg) y el borde.
+        lbl = tk.Label(parent, 
+                       text=text_content, 
+                       fg=text_color, 
+                       font=font_style, 
+                       bg='white', # Fondo neutro para que se vea el color del texto
+                       relief=tk.RIDGE, 
+                       bd=2, # Borde grueso para distinción
+                       padx=5, 
+                       pady=2)
+        lbl.pack(side='left', padx=(0, 10))
+        return lbl
+
+    # 1. Leyenda de Colas (Tipo de Colas)
+    tk.Label(leyenda_frame, text="Tipos de Cola (Etiqueta/Color):", 
+             font=FONT_TITLE_SMALL, fg=TITLE_COLOR, bg=FILTER_BG).pack(anchor='w')
+             
+    colas_line = ttk.Frame(leyenda_frame, style='Sky.TFrame')
+    colas_line.pack(anchor='w', pady=(2, 5))
+    
+    crear_label_leyenda_color(colas_line, COLOR_INGRESO, "Ingreso (I)", is_bold=True)
+    crear_label_leyenda_color(colas_line, COLOR_TRASPASO, "Traspaso (T)", is_bold=True)
+    crear_label_leyenda_color(colas_line, COLOR_SALIDA, "Salida (S)", is_bold=True)
+    
+    # 2. Leyenda de Actividad del Nodo
+    tk.Label(leyenda_frame, text="Estado de Actividad del Nodo:", 
+             font=FONT_TITLE_SMALL, fg=TITLE_COLOR, bg=FILTER_BG).pack(anchor='w')
+
+    actividad_line = ttk.Frame(leyenda_frame, style='Sky.TFrame')
+    actividad_line.pack(anchor='w', pady=(2, 0))
+
+    crear_label_leyenda_color(actividad_line, 'black', "Inactivo (0)", is_bold=False).config(bg=COLOR_INACTIVO)
+    crear_label_leyenda_color(actividad_line, COLOR_BAJA, "Baja (1-2)", is_bold=False)
+    crear_label_leyenda_color(actividad_line, COLOR_MEDIA, "Media (3-5)", is_bold=False)
+    crear_label_leyenda_color(actividad_line, COLOR_ALTA, "Alta (6+)", is_bold=False)
+
     # Crear figura matplotlib
     fig = Figure(figsize=(8, 6), dpi=100, facecolor='white')
     ax = fig.add_subplot(111)
