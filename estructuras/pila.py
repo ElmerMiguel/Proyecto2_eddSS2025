@@ -26,11 +26,9 @@ class Pila:
         return libro
 
     def push(self, libro: Libro):
-        """Alias de apilar para compatibilidad."""
         self.apilar(libro)
 
     def pop(self) -> Optional[Libro]:
-        """Alias de desapilar para compatibilidad."""
         return self.desapilar()
 
     def esta_vacia(self) -> bool:

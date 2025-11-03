@@ -10,18 +10,13 @@ class Arista:
 class Grafo:
     def __init__(self):
         self.nodos: Dict[str, List[Arista]] = {}
-        self.etiquetas: Dict[str, str] = {} # Inicialización de etiquetas
+        self.etiquetas: Dict[str, str] = {}
 
     def agregar_nodo(self, nombre: str, etiqueta: str = None):
-        """
-        Agrega un nodo al grafo.
-        nombre: ID único del nodo
-        etiqueta: Nombre legible para visualización (opcional)
-        """
         if nombre not in self.nodos:
             self.nodos[nombre] = []
         if etiqueta:
-            self.etiquetas[nombre] = etiqueta # Almacenar etiqueta
+            self.etiquetas[nombre] = etiqueta
 
     def agregar_arista(self, origen: str, destino: str, tiempo: int, costo: float, bidireccional: bool = True):
         self.agregar_nodo(origen)
@@ -31,16 +26,11 @@ class Grafo:
             self.nodos[destino].append(Arista(origen, tiempo, costo))
 
     def eliminar_nodo(self, nombre: str) -> bool:
-        """
-        Elimina un nodo y todas sus aristas asociadas.
-        Retorna True si fue eliminado, False si no existia.
-        """
         if nombre not in self.nodos:
             return False
         
         del self.nodos[nombre]
         
-        # Eliminar etiqueta si existe
         if nombre in self.etiquetas:
             del self.etiquetas[nombre]
         
@@ -53,10 +43,6 @@ class Grafo:
         return True
 
     def eliminar_arista(self, origen: str, destino: str, bidireccional: bool = True) -> bool:
-        """
-        Elimina una arista entre dos nodos.
-        Retorna True si fue eliminada, False si no existia.
-        """
         if origen not in self.nodos:
             return False
         
@@ -68,11 +54,9 @@ class Grafo:
             aristas_destino = self.nodos[destino]
             self.nodos[destino] = [a for a in aristas_destino if a.destino != origen]
         
-        # Se asume que el grafo es dirigido en el almacenamiento, por lo que basta con revisar el origen.
         return len(self.nodos[origen]) < cantidad_inicial
 
     def dijkstra_tiempo(self, origen: str, destino: str) -> Tuple[int, List[str]]:
-        # La distancia es float, se convierte a int al final si la ruta es válida
         distancia, ruta = self._dijkstra(origen, destino, usar_tiempo=True)
         return (int(distancia), ruta) if ruta else (math.inf, [])
 
@@ -92,7 +76,6 @@ class Grafo:
             nodo_actual = None
             distancia_minima = math.inf
 
-            # Encontrar el nodo no visitado con la menor distancia
             for nodo in self.nodos:
                 if nodo not in visitados and distancias[nodo] < distancia_minima:
                     distancia_minima = distancias[nodo]
@@ -103,7 +86,6 @@ class Grafo:
 
             visitados.add(nodo_actual)
 
-            # Relajación de aristas
             for arista in self.nodos[nodo_actual]:
                 peso = arista.tiempo if usar_tiempo else arista.costo
                 distancia = distancias[nodo_actual] + peso
@@ -125,10 +107,7 @@ class Grafo:
         return (distancias[destino], camino)
 
     def obtener_rutas_alternativas(self, origen: str, destino: str, criterio: str = "tiempo") -> List[Tuple[float, List[str]]]:
-        """
-        Retorna hasta 3 rutas alternativas ordenadas por costo/tiempo.
-        Usa variante de Dijkstra con k caminos mas cortos.
-        """
+        
         usar_tiempo = (criterio == "tiempo")
         rutas = []
         
@@ -149,9 +128,7 @@ class Grafo:
 
     def _dijkstra_con_prohibiciones(self, origen: str, destino: str, usar_tiempo: bool, 
                                      rutas_prohibidas: set[Tuple[str, ...]]) -> Tuple[float, List[str]]:
-        """
-        Dijkstra modificado que evita rutas ya encontradas.
-        """
+        
         if origen not in self.nodos or destino not in self.nodos:
             return (math.inf, [])
 
@@ -181,7 +158,7 @@ class Grafo:
                     nodo = previos[nodo]
                 
                 if tuple(camino_temporal) in rutas_prohibidas:
-                    visitados.add(nodo_actual) # Marcar como visitado y seguir buscando
+                    visitados.add(nodo_actual)
                     continue
 
             visitados.add(nodo_actual)
@@ -210,7 +187,6 @@ class Grafo:
         return (distancias[destino], camino)
 
     def obtener_pesos_arista(self, origen: str, destino: str) -> Optional[Tuple[int, float]]:
-        """Devuelve (tiempo, costo) si existe la arista origen→destino."""
         if origen not in self.nodos:
             return None
         for arista in self.nodos[origen]:
@@ -219,7 +195,6 @@ class Grafo:
         return None
 
     def calcular_tiempo_ruta(self, ruta: List[str]) -> float:
-        """Suma tiempos en segundos para la ruta dada."""
         if not ruta or len(ruta) < 2:
             return 0.0
         total = 0.0
@@ -231,7 +206,6 @@ class Grafo:
         return total
 
     def calcular_costo_ruta(self, ruta: List[str]) -> float:
-        """Suma costos monetarios para la ruta dada."""
         if not ruta or len(ruta) < 2:
             return 0.0
         total = 0.0
@@ -243,12 +217,8 @@ class Grafo:
         return total
 
     def calcular_eta(self, origen: str, destino: str, prioridad: str = "tiempo") -> int:
-        """
-        Calcula tiempo estimado de llegada (ETA) en segundos.
-        """
         if prioridad == "tiempo":
             tiempo_total, ruta = self.dijkstra_tiempo(origen, destino)
-            # dijkstra_tiempo ya retorna el tiempo total como int si es posible
             return int(tiempo_total) if ruta and tiempo_total != math.inf else 0
         else:
             costo_total, ruta = self.dijkstra_costo(origen, destino)
@@ -258,19 +228,15 @@ class Grafo:
             return int(tiempo_total) if tiempo_total != math.inf else 0
 
     def listar_nodos(self) -> List[str]:
-        """Retorna lista de IDs de nodos (bibliotecas)"""
         return list(self.nodos.keys())
 
     def obtener_aristas(self, nodo: str) -> List[Arista]:
-        """Retorna lista de aristas salientes de un nodo"""
         return self.nodos.get(nodo, [])
 
     def existe_nodo(self, nombre: str) -> bool:
-        """Verifica si existe un nodo en el grafo"""
         return nombre in self.nodos
 
     def obtener_grado_entrada(self, nodo: str) -> int:
-        """Calcula el grado de entrada de un nodo (cuantas aristas llegan a el)"""
         if nodo not in self.nodos:
             return 0
         
@@ -282,18 +248,10 @@ class Grafo:
         return grado
 
     def obtener_grado_salida(self, nodo: str) -> int:
-        """Calcula el grado de salida de un nodo (cuantas aristas salen de el)"""
         return len(self.nodos.get(nodo, []))
 
     def obtener_estadisticas(self) -> dict:
-        """
-        Retorna estadisticas del grafo:
-        - Numero de nodos
-        - Numero de aristas
-        - Nodo con mas conexiones
-        - Tiempo promedio de aristas
-        - Costo promedio de aristas
-        """
+        
         total_nodos = len(self.nodos)
         total_aristas = sum(len(aristas) for aristas in self.nodos.values())
         
@@ -314,7 +272,6 @@ class Grafo:
         
         for nodo, aristas in self.nodos.items():
             conexiones = len(aristas)
-            # Solo consideramos las aristas salientes para 'max_conexiones'
             if conexiones > max_conexiones:
                 max_conexiones = conexiones
                 nodo_mas_conectado = nodo
@@ -333,7 +290,6 @@ class Grafo:
         }
 
     def mostrar_estadisticas(self):
-        """Imprime estadisticas del grafo en formato tabular"""
         stats = self.obtener_estadisticas()
         
         print("\n" + "=" * 60)
@@ -351,14 +307,7 @@ class Grafo:
     
     
     def exportar_dot_con_ruta(self, archivo: str, ruta: List[str] = None, color_ruta: str = "#ff4444"):
-        """
-        Exporta el grafo resaltando una ruta específica.
         
-        Args:
-            archivo: Archivo DOT de salida
-            ruta: Lista de nodos que forman la ruta a resaltar
-            color_ruta: Color para resaltar la ruta (por defecto rojo)
-        """
         with open(archivo, "w", encoding="utf-8") as out:
             out.write("digraph RedBibliotecas {\n    rankdir=LR;\n")
             out.write("    node [shape=ellipse, style=filled, fillcolor=\"#cfe2ff\"];\n")
@@ -368,10 +317,8 @@ class Grafo:
             for nodo in self.nodos:
                 etiqueta = self.etiquetas.get(nodo, nodo)
                 if ruta and nodo in ruta:
-                    # Nodo en la ruta - color destacado
                     out.write(f'    "{nodo}" [label="{etiqueta}\\n({nodo})", fillcolor="#ffeb3b", penwidth=3];\n')
                 else:
-                    # Nodo normal
                     out.write(f'    "{nodo}" [label="{etiqueta}\\n({nodo})"];\n')
             
             out.write("\n")
@@ -385,14 +332,12 @@ class Grafo:
             for origen, aristas in self.nodos.items():
                 for arista in aristas:
                     if (origen, arista.destino) in aristas_ruta:
-                        # Arista en la ruta - color y grosor destacado
                         out.write(
                             f'    "{origen}" -> "{arista.destino}" '
                             f'[label="t={arista.tiempo}s\\nc={arista.costo:.2f}", '
                             f'color="{color_ruta}", penwidth=4, fontcolor="{color_ruta}"];\n'
                         )
                     else:
-                        # Arista normal
                         out.write(
                             f'    "{origen}" -> "{arista.destino}" '
                             f'[label="t={arista.tiempo}s\\nc={arista.costo:.2f}"];\n'
@@ -402,10 +347,7 @@ class Grafo:
     
 
     def exportar_dot(self, archivo: str):
-        """
-        Exporta el grafo a formato DOT para visualizacion con Graphviz.
-        Aplica los estilos mejorados de la revisión.
-        """
+        
         with open(archivo, "w", encoding="utf-8") as out:
             out.write("digraph RedBibliotecas {\n    rankdir=LR;\n")
             out.write("    node [shape=ellipse, style=filled, fillcolor=\"#cfe2ff\"];\n")
@@ -418,7 +360,7 @@ class Grafo:
             
             out.write("\n")
             
-            # Escribir aristas (solo dirigidas, sin lógica bidireccional compleja)
+            # Escribir aristas
             for origen, aristas in self.nodos.items():
                 for arista in aristas:
                     out.write(

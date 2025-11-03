@@ -1,7 +1,3 @@
-"""
-Pestaña Visualizacion - Representacion grafica de estructuras
-"""
-
 import os
 import tempfile
 import subprocess
@@ -23,8 +19,7 @@ ESTRUCTURAS_DISPONIBLES = [
 ]
 
 class VisualizacionTab:
-    """Controlador para la pestaña de visualizacion"""
-
+    
     def __init__(self, red_bibliotecas):
         self.red_bibliotecas = red_bibliotecas
         self.canvas = None
@@ -93,7 +88,7 @@ class VisualizacionTab:
         self._temp_dir = tempfile.mkdtemp(prefix="viz_biblioteca_")
 
     def _generar_dot(self, estructura: str) -> str:
-        """Genera archivo DOT temporal y retorna su ruta."""
+        
         self._crear_directorio_temp()
         archivo_dot = os.path.join(self._temp_dir, f"{estructura}.dot")
 
@@ -102,14 +97,12 @@ class VisualizacionTab:
                 if not self.red_bibliotecas.grafo:
                     raise ValueError("El grafo no está inicializado")
                 
-                # VERIFICAR SI HAY RUTA CALCULADA RECIENTE
+                # Resaltar la última ruta calculada si existe
                 ruta_actual = getattr(self.red_bibliotecas, 'ultima_ruta_calculada', None)
                 
                 if ruta_actual:
-                    # Exportar con ruta resaltada
                     self.red_bibliotecas.grafo.exportar_dot_con_ruta(archivo_dot, ruta_actual)
                 else:
-                    # Exportar normal
                     self.red_bibliotecas.grafo.exportar_dot(archivo_dot)
                     
             elif estructura == "colas":
@@ -132,7 +125,7 @@ class VisualizacionTab:
         return archivo_dot
 
     def _dot_a_png(self, ruta_dot: str) -> str:
-        """Convierte dot -> png usando graphviz (requiere 'dot' en PATH)."""
+        
         ruta_png = ruta_dot.replace(".dot", ".png")
         comando = ["dot", "-Tpng", ruta_dot, "-o", ruta_png]
         try:
@@ -144,7 +137,7 @@ class VisualizacionTab:
         return ruta_png
 
     def _mostrar_estadisticas_hash(self, biblioteca):
-        """Muestra estadísticas detalladas de la tabla hash"""
+        
         if not hasattr(biblioteca.catalogo_local, 'tabla_isbn'):
             return
         

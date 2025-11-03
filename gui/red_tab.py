@@ -6,15 +6,12 @@ USANDO MATPLOTLIB
 import tkinter as tk
 from tkinter import ttk, messagebox
 import math
-import networkx as nx # Importación necesaria para el diseño de grafos
+import networkx as nx
 
-# === NUEVAS IMPORTACIONES PARA MATPLOTLIB ===
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-# ============================================
 
-# Importaciones necesarias de tu proyecto:
-from .config import * # from objetos.biblioteca import Biblioteca # Mantener si se usa, pero no es crucial para el fix.
+from .config import *
 
 class RedTab:
     """Controlador de la pestaña de Red de Bibliotecas"""
@@ -22,13 +19,10 @@ class RedTab:
     def __init__(self, red_bibliotecas):
         self.red_bibliotecas = red_bibliotecas
         
-        # --- REFERENCIAS DE MATPLOTLIB ---
-        self.grafo_fig = None     # Figura de Matplotlib
-        self.grafo_ax = None      # Ejes de Matplotlib
-        self.grafo_canvas_mpl = None # Canvas de Tkinter para Matplotlib
-        # El antiguo self.grafo_canvas (tk.Canvas) ya no se usa.
+        self.grafo_fig = None     
+        self.grafo_ax = None      
+        self.grafo_canvas_mpl = None 
         
-        # Variables de entrada
         self.bib_nombre_var = tk.StringVar()
         self.bib_ubicacion_var = tk.StringVar()
         self.bib_tiempo_ingreso_var = tk.StringVar(value="10")
@@ -41,12 +35,9 @@ class RedTab:
         self.costo_conexion_var = tk.StringVar()
         self.bidireccional_var = tk.BooleanVar(value=True)
 
-        # Cache para guardar posiciones del grafo y mantenerlas estables
         self._posiciones_grafo = {}
     
     def agregar_biblioteca(self):
-        """Agregar nueva biblioteca"""
-        # ... (código para agregar biblioteca, sin cambios)
         try:
             nombre = self.bib_nombre_var.get().strip()
             if not nombre:
@@ -66,7 +57,6 @@ class RedTab:
                 messagebox.showerror("Error", "Ya existe una biblioteca con ese nombre")
                 return
             
-            # Generar ID único
             nuevo_id = f"BIB{len(self.red_bibliotecas.bibliotecas) + 1:03d}"
             
             self.red_bibliotecas.agregar_biblioteca(
@@ -80,10 +70,8 @@ class RedTab:
             
             messagebox.showinfo("Éxito", f"Biblioteca '{nombre}' creada con ID: {nuevo_id}")
             
-            # Limpiar campos
             self._limpiar_formulario_bib()
             
-            # Limpiar posiciones para forzar un nuevo cálculo de layout
             self._posiciones_grafo = {} 
 
             if hasattr(self, 'callback_actualizar'):
@@ -95,8 +83,6 @@ class RedTab:
             messagebox.showerror("Error", f"Error al crear biblioteca: {e}")
     
     def agregar_conexion(self):
-        """Agregar conexión entre bibliotecas"""
-        # ... (código para agregar conexión, sin cambios)
         try:
             origen = self.origen_var.get().strip()
             destino = self.destino_var.get().strip()
@@ -115,8 +101,6 @@ class RedTab:
                 messagebox.showerror("Error", "Tiempo y costo deben ser numericos")
                 return
             
-            # NOTA: Asumiendo que red_bibliotecas.agregar_conexion maneja la lógica
-            # para actualizar el grafo interno (que es la fuente de verdad).
             creada = self.red_bibliotecas.agregar_conexion(
                 origen=origen,
                 destino=destino,
@@ -131,7 +115,6 @@ class RedTab:
                 self.tiempo_conexion_var.set("")
                 self.costo_conexion_var.set("")
                 
-                # Limpiar posiciones para que el grafo se ajuste con la nueva conexión
                 self._posiciones_grafo = {} 
 
                 if hasattr(self, 'callback_dibujar'):
@@ -143,7 +126,6 @@ class RedTab:
             messagebox.showerror("Error", f"Error al crear conexión: {e}")
     
     def actualizar_comboboxes_conexiones(self, origen_combo, destino_combo):
-        """Actualiza comboboxes de bibliotecas para conexiones"""
         ids = sorted(list(self.red_bibliotecas.bibliotecas.keys()))
         
         origen_combo['values'] = ids
@@ -166,7 +148,6 @@ class RedTab:
         
         # 1. Agregar nodos
         for bib_id in self.red_bibliotecas.bibliotecas.keys():
-            # Si el nodo no existe en el grafo, NetworkX lo agregará.
             nx_graph.add_node(bib_id)
         
         # 2. Agregar aristas y sus atributos
@@ -174,11 +155,8 @@ class RedTab:
             for arista in aristas:
                 nodo_destino = arista.destino
                 
-                # Para un grafo NO dirigido (Graph), solo se agrega una vez (e.g., A-B)
-                # La condición 'origen < destino' asegura que solo se agregue A-B y no B-A
+                # Agrega la arista solo si origen < destino para evitar duplicados en el grafo no dirigido
                 if nodo_origen < nodo_destino:
-                    # Almacenamos tiempo y costo como atributos del borde (edge)
-                    # NetworkX necesita que los atributos se pasen a add_edge
                     nx_graph.add_edge(
                         nodo_origen, 
                         nodo_destino, 
@@ -207,7 +185,6 @@ class RedTab:
         if self.grafo_ax is None or self.grafo_canvas_mpl is None:
             return
         
-        # 1. Limpiar el lienzo
         self.grafo_ax.clear()
         
         nx_graph = self._obtener_grafo_nx()
@@ -221,7 +198,6 @@ class RedTab:
             return
         
         try:
-            # 2. Calcular las posiciones (usa la caché si ya existe)
             posiciones = self._calcular_posiciones_grafo_nx(nx_graph)
         except Exception as e:
             self.grafo_ax.text(0.5, 0.5, f"Error al calcular layout: {e}", 
@@ -239,7 +215,7 @@ class RedTab:
             nx_graph, 
             posiciones, 
             ax=self.grafo_ax, 
-            node_size=800, # Aumentado para mejor visualización
+            node_size=800,
             node_color=BUTTON_COLOR, 
             edgecolors=TITLE_COLOR,
             linewidths=2
@@ -278,19 +254,18 @@ class RedTab:
             ax=self.grafo_ax, 
             font_color=TITLE_COLOR, 
             font_size=8,
-            bbox={"alpha": 0.5, "facecolor": DASH_CARD_BG, "edgecolor": "none"} # Fondo para que el texto resalte
+            bbox={"alpha": 0.5, "facecolor": DASH_CARD_BG, "edgecolor": "none"}
         )
         
         # 4. Configurar y renderizar
         self.grafo_ax.set_title("RED DE BIBLIOTECAS (NetworkX/Matplotlib)", color=ACCENT_COLOR)
-        self.grafo_ax.axis('off') # Ocultar los ejes de coordenadas de Matplotlib
-        self.grafo_fig.set_facecolor(FILTER_BG) # Color de fondo de la figura (ajustar si es necesario)
+        self.grafo_ax.axis('off')
+        self.grafo_fig.set_facecolor(FILTER_BG)
         
-        self.grafo_canvas_mpl.draw() # Renderizar el gráfico en el canvas de Tkinter
+        self.grafo_canvas_mpl.draw()
 
     
     def _limpiar_formulario_bib(self):
-        """Limpia formulario de bibliotecas"""
         self.bib_nombre_var.set("")
         self.bib_ubicacion_var.set("")
         self.bib_tiempo_ingreso_var.set("10")
@@ -299,7 +274,6 @@ class RedTab:
 
 
 def crear_red_tab(notebook, red_bibliotecas, callback_actualizar=None, callback_dibujar=None):
-    """Crear y retornar la pestaña de Red"""
     
     tab_red = ttk.Frame(notebook, style='Sky.TFrame')
     notebook.add(tab_red, text="🕸️ Gestión de la Red (Grafo)")
@@ -308,7 +282,6 @@ def crear_red_tab(notebook, red_bibliotecas, callback_actualizar=None, callback_
     tab_red.grid_columnconfigure(1, weight=3)
     tab_red.grid_rowconfigure(0, weight=1)
     
-    # Crear controlador
     ctrl = RedTab(red_bibliotecas)
     
     # === FRAME CONFIGURACIÓN (Lado Izquierdo) ===
@@ -365,34 +338,24 @@ def crear_red_tab(notebook, red_bibliotecas, callback_actualizar=None, callback_
     grafo_frame = ttk.Frame(tab_red, style='Sky.TFrame', padding=10)
     grafo_frame.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
     
-    # --- Título ---
     tk.Label(grafo_frame, text="🕸️ RED DE BIBLIOTECAS (Fuerza Dirigida)", 
              font=FONT_TITLE_LARGE, fg=ACCENT_COLOR, bg=FILTER_BG).pack(pady=(0, 10))
     
     # --- CREACIÓN DEL CANVAS DE MATPLOTLIB ---
     
-    # 1. Crear Figura de Matplotlib (donde se dibuja)
-    # Establecemos un DPI más bajo, Matplotlib se escalará al tamaño del frame.
     ctrl.grafo_fig = Figure(dpi=100) 
-    ctrl.grafo_ax = ctrl.grafo_fig.add_subplot(111) # Añadir los ejes
+    ctrl.grafo_ax = ctrl.grafo_fig.add_subplot(111)
     
-    # 2. Crear el canvas de Tkinter a partir de la Figura
     ctrl.grafo_canvas_mpl = FigureCanvasTkAgg(ctrl.grafo_fig, master=grafo_frame)
     canvas_widget = ctrl.grafo_canvas_mpl.get_tk_widget()
     
-    # Reemplazamos el antiguo tk.Canvas por el widget de Matplotlib
     canvas_widget.pack(fill='both', expand=True, pady=5)
-    
-    # NOTA: En Matplotlib, el evento de 'Configure' ya no es necesario para redibujar 
-    # debido a que Matplotlib maneja mejor el redimensionamiento.
     
     # ----------------------------------------------------------------------
     
-    # Actualizar comboboxes y dibujar
     ctrl.actualizar_comboboxes_conexiones(origen_combo, destino_combo)
 
     def refrescar_conexiones():
-        # Limpiar cache de posiciones cuando se refrescan los datos
         ctrl._posiciones_grafo = {}
         ctrl.actualizar_comboboxes_conexiones(origen_combo, destino_combo)
         ctrl.dibujar_grafo()
@@ -400,7 +363,6 @@ def crear_red_tab(notebook, red_bibliotecas, callback_actualizar=None, callback_
     ctrl.callback_actualizar = refrescar_conexiones
     ctrl.callback_dibujar = ctrl.dibujar_grafo
     
-    # Dibujar por primera vez al cargar la pestaña
     ctrl.dibujar_grafo() 
     
     return tab_red, ctrl

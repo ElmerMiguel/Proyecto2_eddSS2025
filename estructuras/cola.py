@@ -11,7 +11,7 @@ class Cola:
         self.frente: Optional[NodoCola] = None
         self.final: Optional[NodoCola] = None
         self.tamanio = 0
-        self.tipo = tipo  # "ingreso", "traspaso", "salida"
+        self.tipo = tipo
 
     def encolar(self, libro: Libro):
         nuevo = NodoCola(libro)

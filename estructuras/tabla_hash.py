@@ -20,7 +20,7 @@ class TablaHash:
     # -------------------------------------------------
     def _hash(self, isbn: str) -> int:
         hash_val = 0
-        A = 0.6180339887  # Constante de Knuth (proporción áurea)
+        A = 0.6180339887
         
         for i, char in enumerate(isbn):
             hash_val += ord(char) * (31 ** i)
@@ -52,15 +52,11 @@ class TablaHash:
         return self.cantidad / self.capacidad
 
     def _rehash(self):
-        print(f"Rehashing: {self.capacidad} -> ", end="")
-        
         tabla_vieja = self.tabla
         
         self.capacidad = self._siguiente_primo(self.capacidad * 2)
         self.tabla = [None] * self.capacidad
         self.cantidad = 0
-        
-        print(f"{self.capacidad}")
         
         for bucket in tabla_vieja:
             actual = bucket
@@ -77,7 +73,6 @@ class TablaHash:
         
         while actual:
             if actual.libro.isbn == libro.isbn:
-                print(f"El ISBN {libro.isbn} ya existe en la tabla")
                 return False
             actual = actual.siguiente
         
@@ -252,4 +247,5 @@ class TablaHash:
             
             out.write("}\n")
             
+        # El print de confirmación es útil para el usuario
         print(f"Archivo DOT generado: {archivo}")

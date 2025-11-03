@@ -2,41 +2,24 @@ from objetos.libro import Libro
 
 
 class NodoLista:
-    """
-    Nodo individual de la lista enlazada de libros.
-    """
     def __init__(self, libro: Libro):
         self.data = libro
         self.siguiente = None
 
 
 class ListaLibros:
-    """
-    Lista enlazada simple que almacena objetos de tipo Libro.
-    Permite insertar, eliminar, buscar y mostrar libros.
-    """
 
     def __init__(self):
         self.cabeza = None
         self.tamanio = 0 
 
     def insertar(self, libro: Libro):
-        """
-        Inserta un nuevo libro al inicio de la lista.
-        """
         nuevo = NodoLista(libro)
         nuevo.siguiente = self.cabeza
         self.cabeza = nuevo
         self.tamanio += 1 
-
-    
-    
     
     def eliminar(self, isbn: str) -> bool:
-        """
-        Elimina un libro de la lista por su ISBN.
-        Retorna True si fue eliminado, False si no se encontró.
-        """
         actual = self.cabeza
         anterior = None
 
@@ -55,10 +38,6 @@ class ListaLibros:
     
     
     def buscar_por_titulo(self, titulo: str) -> Libro | None:
-        """
-        Busca un libro por su título.
-        Retorna el libro si lo encuentra, None si no.
-        """
         actual = self.cabeza
         while actual:
             if actual.data.titulo == titulo:
@@ -67,28 +46,17 @@ class ListaLibros:
         return None
 
     def buscar_por_isbn(self, isbn: str) -> Libro | None:
-        """
-        Busca un libro por su ISBN.
-        Retorna el libro si lo encuentra, None si no.
-        """
         actual = self.cabeza
         while actual:
             if actual.data.isbn == isbn:
                 return actual.data
             actual = actual.siguiente
         return None
-    
-    
-    
-    
 
     def mostrar_todos(self):
-        """
-        Muestra todos los libros en formato tabular y RETORNA la lista.
-        """
         if not self.cabeza:
             print("No hay libros en el catálogo.")
-            return []  # ✅ RETORNAR LISTA VACÍA EN LUGAR DE None
+            return []
 
         # Recopilar libros
         actual = self.cabeza
@@ -123,7 +91,4 @@ class ListaLibros:
 
             print("=" * (max_titulo + max_autor + max_anio + max_isbn + 12))
         
-        return libros 
-    
-    
-        
+        return libros

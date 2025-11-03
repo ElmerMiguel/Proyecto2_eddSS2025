@@ -9,33 +9,28 @@ import numpy as np
 import networkx as nx
 import math
 
-# === IMPORTACIONES PARA MATPLOTLIB ===
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 
-# Asume que 'config' es un módulo que contiene variables como FONT_TITLE_LARGE, ACCENT_COLOR, etc.
 from .config import *
 
-# === DEFINICIÓN DE COLORES DEL GRAFO (COPIADOS DE dibuja_grafo_colas) ===
-COLOR_INGRESO = '#4CAF50'  # Verde
-COLOR_TRASPASO = '#FF9800' # Naranja
-COLOR_SALIDA = '#F44336'   # Rojo
+COLOR_INGRESO = '#4CAF50'
+COLOR_TRASPASO = '#FF9800'
+COLOR_SALIDA = '#F44336'
 
-COLOR_INACTIVO = '#E0E0E0' # Gris claro
-COLOR_BAJA = '#81C784'     # Verde claro (Baja Actividad)
-COLOR_MEDIA = '#FFB74D'    # Naranja claro (Media Actividad)
-COLOR_ALTA = '#F06292'     # Rosa (Alta Actividad)
+COLOR_INACTIVO = '#E0E0E0'
+COLOR_BAJA = '#81C784'
+COLOR_MEDIA = '#FFB74D'
+COLOR_ALTA = '#F06292'
 
-# === COLORES PARA ARISTAS DINÁMICAS ===
-COLOR_ARISTA_INACTIVA = '#B0B0B0'    # Gris - Sin transferencias
-COLOR_ARISTA_BAJA = '#4CAF50'        # Verde - Pocas transferencias
-COLOR_ARISTA_MEDIA = '#FF9800'       # Naranja - Transferencias moderadas
-COLOR_ARISTA_ALTA = '#F44336'        # Rojo - Muchas transferencias Muchas transferencias
+COLOR_ARISTA_INACTIVA = '#B0B0B0'
+COLOR_ARISTA_BAJA = '#4CAF50'
+COLOR_ARISTA_MEDIA = '#FF9800'
+COLOR_ARISTA_ALTA = '#F44336'
 
 
 class SimulacionTab:
-    """Controlador de la pestaña de Simulación"""
     
     def __init__(self, red_bibliotecas):
         self.red_bibliotecas = red_bibliotecas
@@ -47,16 +42,13 @@ class SimulacionTab:
         self._detener_event = threading.Event()
         self.intervalo_tick = 1.5
         
-        # Variables para Matplotlib
         self.fig = None
         self.ax = None
         self.canvas = None
 
-        # Cache para guardar posiciones del grafo (clave para estabilidad visual)
         self._posiciones_grafo = None 
 
     def configurar_componentes(self, tab_root, metricas_label, colas_tree, fig, ax, canvas):
-        """Configura las referencias a componentes de la interfaz"""
         self.tab_root = tab_root
         self.metricas_label = metricas_label
         self.colas_tree = colas_tree
@@ -67,7 +59,6 @@ class SimulacionTab:
         self.actualizar_estado()
 
     def inicializar_grafico(self):
-        """Configura el gráfico inicial como GRAFO DE NODOS"""
         if not self.ax:
             return
         
@@ -85,7 +76,6 @@ class SimulacionTab:
         self.dibujar_grafo_colas()
 
     def _calcular_posiciones_grafo_nx(self, canvas_width=10, canvas_height=8):
-        """Calcula y escala las posiciones de los nodos usando un layout de fuerza dirigida."""
         if self._posiciones_grafo is not None:
             return self._posiciones_grafo
         
@@ -97,11 +87,9 @@ class SimulacionTab:
         for origen, aristas in self.red_bibliotecas.grafo.nodos.items():
             for arista in aristas:
                 destino = arista.destino
-                # Evitar duplicados de aristas en grafo no dirigido
                 if origen < destino: 
                     nx_graph.add_edge(origen, destino)
 
-        # Usar el layout 'spring' (Fuerza Dirigida)
         pos = nx.spring_layout(nx_graph, seed=42, k=0.5, iterations=50) 
         
         if not pos:
@@ -119,7 +107,6 @@ class SimulacionTab:
         range_x = max_x - min_x if max_x != min_x else 1
         range_y = max_y - min_y if max_y != min_y else 1
         
-        # Escalar para que se ajuste al área de (1, 1) a (9, 7) aprox.
         target_width = canvas_width - 2
         target_height = canvas_height - 2
         
@@ -129,7 +116,6 @@ class SimulacionTab:
 
         scaled_pos = {}
         for node, (x, y) in pos.items():
-            # Escalar y desplazar para centrar
             scaled_x = 1 + (x - min_x) * scale
             scaled_y = 1 + (y - min_y) * scale
             scaled_pos[node] = (scaled_x, scaled_y)
@@ -139,15 +125,13 @@ class SimulacionTab:
 
 
     def dibujar_grafo_colas(self):
-        """Dibuja el grafo de bibliotecas con estado de colas en cada nodo"""
         if not self.ax:
             return
         
         self.ax.clear()
         self.ax.set_title('Red de Bibliotecas - Estado de Colas en Tiempo Real', 
-                         fontsize=14, fontweight='bold', pad=5) # SIN EMOJI
+                         fontsize=14, fontweight='bold', pad=5)
         
-        # Establecer límites del plot (coordenadas para el grafo)
         self.ax.set_xlim(0, 10)
         self.ax.set_ylim(0, 8)
         self.ax.axis('off')
@@ -182,10 +166,8 @@ class SimulacionTab:
                     x1, y1 = posiciones[origen]
                     x2, y2 = posiciones[destino]
                     
-                    # ✅ CALCULAR ACTIVIDAD EN ESTA CONEXIÓN
                     actividad_conexion = self._calcular_actividad_conexion(origen, destino)
                     
-                    # ✅ COLOR Y GROSOR SEGÚN ACTIVIDAD
                     if actividad_conexion == 0:
                         color_arista = COLOR_ARISTA_INACTIVA
                         grosor = 1
@@ -203,7 +185,6 @@ class SimulacionTab:
                         grosor = 4
                         alpha = 1.0
                     
-                    # Dibujar línea con estilo dinámico
                     self.ax.plot([x1, x2], [y1, y2], color=color_arista, 
                                  linewidth=grosor, alpha=alpha, zorder=1)
                     
@@ -218,12 +199,10 @@ class SimulacionTab:
                     offset_x = distancia * math.sin(angulo)
                     offset_y = -distancia * math.cos(angulo)
                     
-                    # ✅ ETIQUETA MEJORADA CON ACTIVIDAD (SIN EMOJIS)
                     etiqueta_texto = f"T:{arista.tiempo//60}m C:{arista.costo:.0f}"
                     if actividad_conexion > 0:
-                        etiqueta_texto += f"\nTrans: {actividad_conexion}" # SIN EMOJI
+                        etiqueta_texto += f"\nTrans: {actividad_conexion}"
                     
-                    # Color de fondo de etiqueta según actividad
                     if actividad_conexion > 0:
                         color_fondo = "lightyellow"
                         color_borde = color_arista
@@ -237,7 +216,7 @@ class SimulacionTab:
                                            facecolor=color_fondo, alpha=0.9,
                                            edgecolor=color_borde))
         
-        # 2. DIBUJAR NODOS (BIBLIOTECAS CON COLAS) - SIN CAMBIOS EXCEPTO QUITAR EMOJIS
+        # 2. DIBUJAR NODOS (BIBLIOTECAS CON COLAS)
         for bib_id, (x, y) in posiciones.items():
             biblioteca = self.red_bibliotecas.bibliotecas[bib_id]
             estado_colas = biblioteca.obtener_estado_colas()
@@ -260,7 +239,6 @@ class SimulacionTab:
                 color_nodo = COLOR_ALTA
                 actividad_texto = "Alta"
             
-            # NODO PRINCIPAL (círculo grande)
             circle = plt.Circle((x, y), radio_nodo, color=color_nodo, alpha=0.8, zorder=3)
             self.ax.add_patch(circle)
             
@@ -273,17 +251,14 @@ class SimulacionTab:
             radio_cola = 0.2
             offset = radio_nodo + radio_cola + 0.1
             
-            # Cola Ingreso: Usamos 'I' en el centro
             self.ax.plot(x - offset, y, 'o', ms=10, color=COLOR_INGRESO, alpha=0.9, zorder=4)
             self.ax.text(x - offset, y, f"I:{ing}", ha='center', va='center', 
                         fontsize=8, fontweight='bold', color='white', zorder=5)
             
-            # Cola Traspaso: Usamos 'T' en el centro
             self.ax.plot(x, y + offset, 'o', ms=10, color=COLOR_TRASPASO, alpha=0.9, zorder=4)
             self.ax.text(x, y + offset, f"T:{tras}", ha='center', va='center', 
                         fontsize=8, fontweight='bold', color='white', zorder=5)
             
-            # Cola Salida: Usamos 'S' en el centro
             self.ax.plot(x + offset, y, 'o', ms=10, color=COLOR_SALIDA, alpha=0.9, zorder=4)
             self.ax.text(x + offset, y, f"S:{sal}", ha='center', va='center', 
                         fontsize=8, fontweight='bold', color='white', zorder=5)
@@ -294,47 +269,35 @@ class SimulacionTab:
         self.canvas.draw()
 
     def actualizar_grafico(self):
-        """Actualiza el gráfico con datos en tiempo real"""
         self.dibujar_grafo_colas()
 
-    # AGREGAR ESTE NUEVO MÉTODO:
     def _calcular_actividad_conexion(self, origen, destino):
-        """Calcula la actividad (transferencias) entre dos bibliotecas"""
         try:
             actividad = 0
             
-            # Contar libros en cola de traspaso/salida hacia el destino
             bib_origen = self.red_bibliotecas.bibliotecas.get(origen)
             bib_destino = self.red_bibliotecas.bibliotecas.get(destino)
             
             if bib_origen:
-                # Simular que algunos libros en traspaso/salida van hacia destino
                 estado_origen = bib_origen.obtener_estado_colas()
-                # Aproximación: dividir entre número de bibliotecas conectadas
                 num_conexiones = len(self.red_bibliotecas.grafo.nodos.get(origen, []))
                 if num_conexiones > 0:
                     actividad += (estado_origen["traspaso"]["cantidad"] + 
                                   estado_origen["salida"]["cantidad"]) // max(num_conexiones, 1)
             
             if bib_destino:
-                # Contar libros que pueden venir desde origen
                 estado_destino = bib_destino.obtener_estado_colas()
                 num_conexiones = len(self.red_bibliotecas.grafo.nodos.get(destino, []))
                 if num_conexiones > 0:
                     actividad += estado_destino["ingreso"]["cantidad"] // max(num_conexiones, 1)
             
-            return min(actividad, 10) # Limitar para no sobrecargar visualmente
+            return min(actividad, 10)
             
         except Exception as e:
             return 0
 
 
-    # ---------------------------------------------------------------------
-    # MÉTODOS DE SIMULACIÓN Y AUXILIARES (Sin cambios en lógica)
-    # ---------------------------------------------------------------------
-
     def iniciar_simulacion(self):
-        """Inicia la simulación en un hilo separado"""
         if self.simulacion_activa:
             messagebox.showwarning("Advertencia", "La simulación ya está en ejecución")
             return
@@ -355,7 +318,6 @@ class SimulacionTab:
         messagebox.showinfo("Simulación", "Simulación iniciada correctamente")
 
     def pausar_simulacion(self):
-        """Pausa/detiene la simulación"""
         if not self.simulacion_activa:
             messagebox.showwarning("Advertencia", "No hay simulación en ejecución")
             return
@@ -370,7 +332,6 @@ class SimulacionTab:
         messagebox.showinfo("Simulación", "Simulación pausada/detenida")
 
     def _ejecutar_simulacion(self):
-        """Hilo principal de simulación con criterio de parada"""
         try:
             ticks_sin_actividad = 0
             max_ticks_inactivos = 10
@@ -402,7 +363,6 @@ class SimulacionTab:
                 self.tab_root.after(0, lambda: messagebox.showerror("Error", f"Error en simulación: {e}"))
 
     def _hay_actividad_en_red(self):
-        """Verifica si hay actividad en alguna biblioteca"""
         for biblioteca in self.red_bibliotecas.bibliotecas.values():
             estado = biblioteca.obtener_estado_colas()
             if (estado["ingreso"]["cantidad"] > 0 or 
@@ -412,13 +372,11 @@ class SimulacionTab:
         return False
 
     def _finalizar_simulacion_automatica(self):
-        """Finaliza simulación automáticamente"""
         self.actualizar_estado("Estado: Simulación completada - Sin actividad")
         messagebox.showinfo("Simulación Completada", 
                            "La simulación finalizó automáticamente.\nNo hay más transferencias activas.")
 
     def _procesar_tick_simulacion(self):
-        """Procesa un ciclo de simulación (mueve libros entre colas)"""
         try:
             for biblioteca in self.red_bibliotecas.bibliotecas.values():
                 self._simular_procesamiento_biblioteca(biblioteca)
@@ -427,7 +385,6 @@ class SimulacionTab:
             print(f"Error procesando tick de simulación: {e}")
 
     def _simular_procesamiento_biblioteca(self, biblioteca):
-        """Simula el procesamiento de libros en las colas de una biblioteca"""
         try:
             if not biblioteca.cola_ingreso.esta_vacia():
                 if np.random.random() < 0.3:
@@ -455,7 +412,6 @@ class SimulacionTab:
             print(f"Error simulando biblioteca {biblioteca.id}: {e}")
 
     def _simular_transferencias_activas(self):
-        """Simula el progreso de transferencias en curso"""
         try:
             for biblioteca in self.red_bibliotecas.bibliotecas.values():
                 if np.random.random() < 0.2:
@@ -464,7 +420,6 @@ class SimulacionTab:
             print(f"Error simulando transferencias: {e}")
 
     def _completar_transferencia_simulada(self, libro):
-        """Completa una transferencia simulada"""
         try:
             if hasattr(libro, 'titulo'):
                 libro.cambiar_estado("disponible")
@@ -472,7 +427,6 @@ class SimulacionTab:
             print(f"Error completando transferencia: {e}")
 
     def _generar_transferencia_aleatoria(self, biblioteca_origen):
-        """Genera una transferencia aleatoria para simular actividad"""
         try:
             libros_disponibles = biblioteca_origen.catalogo_local.lista_secuencial.mostrar_todos()
             libros_disponibles = [libro for libro in libros_disponibles 
@@ -489,7 +443,6 @@ class SimulacionTab:
             print(f"Error generando transferencia aleatoria: {e}")
 
     def _simular_llegada_transferencia(self, biblioteca):
-        """Simula que llega una transferencia a una biblioteca"""
         try:
             todas_las_bibliotecas = list(self.red_bibliotecas.bibliotecas.values())
             
@@ -509,7 +462,6 @@ class SimulacionTab:
             print(f"Error simulando llegada de transferencia: {e}")
 
     def actualizar_estado(self, texto_estado: str = None):
-        """Refresca métricas, tabla Y gráfico"""
         try:
             total_transferencias = 0
             total_en_transito = 0
@@ -548,17 +500,15 @@ class SimulacionTab:
 
 
 def crear_label_leyenda_color(parent, text_color, text_content, is_bold=False):
-    """Crea una etiqueta con el texto del color y un borde fuerte."""
     font_style = ('TkDefaultFont', 10, 'bold' if is_bold else '')
     
-    # Usamos tk.Label para poder especificar el color de texto (fg) y el borde.
     lbl = tk.Label(parent, 
                    text=text_content, 
                    fg=text_color, 
                    font=font_style, 
-                   bg='white', # Fondo neutro para que se vea el color del texto
+                   bg='white',
                    relief=tk.RIDGE, 
-                   bd=2, # Borde grueso para distinción
+                   bd=2, 
                    padx=5, 
                    pady=2)
     lbl.pack(side='left', padx=(0, 10))
@@ -566,12 +516,10 @@ def crear_label_leyenda_color(parent, text_color, text_content, is_bold=False):
 
 
 def crear_simulacion_tab(notebook, red_bibliotecas):
-    """Crear pestaña de Simulación con visualización Matplotlib"""
     
     tab_simulacion = ttk.Frame(notebook, style='Sky.TFrame')
-    notebook.add(tab_simulacion, text="Simulacion y Colas") # SIN EMOJI
+    notebook.add(tab_simulacion, text="Simulacion y Colas")
     
-    # Grid de 2 columnas
     tab_simulacion.grid_columnconfigure(0, weight=1)
     tab_simulacion.grid_columnconfigure(1, weight=1)
     tab_simulacion.grid_rowconfigure(1, weight=1)
@@ -583,7 +531,7 @@ def crear_simulacion_tab(notebook, red_bibliotecas):
     panel_izquierdo.grid(row=0, column=0, rowspan=2, sticky="nsew", padx=5, pady=5)
     panel_izquierdo.grid_rowconfigure(2, weight=1)
     
-    # Controles - QUITAR EMOJIS
+    # Controles
     sim_controls = ttk.Frame(panel_izquierdo, style='Sky.TFrame', padding=10)
     sim_controls.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
     
@@ -606,7 +554,7 @@ def crear_simulacion_tab(notebook, red_bibliotecas):
                               bg=FILTER_BG, fg=ACCENT_COLOR)
     metricas_label.pack(anchor='w', pady=5)
     
-    # Tabla de colas - SIN EMOJIS
+    # Tabla de colas
     colas_container = ttk.Frame(panel_izquierdo, style='Sky.TFrame', padding=10)
     colas_container.grid(row=2, column=0, sticky="nsew", padx=5, pady=5)
     
@@ -636,11 +584,10 @@ def crear_simulacion_tab(notebook, red_bibliotecas):
     panel_derecho = ttk.Frame(tab_simulacion, style='Sky.TFrame', padding=10)
     panel_derecho.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=5, pady=5)
     
-    # Título de Visualización - SIN EMOJIS
     tk.Label(panel_derecho, text="VISUALIZACION EN TIEMPO REAL", 
              font=FONT_TITLE_LARGE, fg=ACCENT_COLOR, bg=FILTER_BG).pack(pady=5)
     
-    # SECCIÓN DE LEYENDA (Contiene todas las sub-leyendas)
+    # SECCIÓN DE LEYENDA
     leyenda_frame = ttk.Frame(panel_derecho, style='Sky.TFrame', padding=5)
     leyenda_frame.pack(fill="x", padx=5, pady=(0, 5))
     
@@ -667,7 +614,7 @@ def crear_simulacion_tab(notebook, red_bibliotecas):
     crear_label_leyenda_color(actividad_line, COLOR_MEDIA, "Media (3-5)", is_bold=False)
     crear_label_leyenda_color(actividad_line, COLOR_ALTA, "Alta (6+)", is_bold=False)
     
-    # 3. NUEVA LEYENDA DE ARISTAS (FUERA DE MATPLOTLIB)
+    # 3. NUEVA LEYENDA DE ARISTAS
     leyenda_aristas_frame = ttk.Frame(leyenda_frame, style='Sky.TFrame')
     leyenda_aristas_frame.pack(anchor='w', pady=(5, 0))
     
@@ -690,7 +637,6 @@ def crear_simulacion_tab(notebook, red_bibliotecas):
     canvas = FigureCanvasTkAgg(fig, panel_derecho)
     canvas.get_tk_widget().pack(fill="both", expand=True)
     
-    # Configurar componentes
     ctrl.configurar_componentes(tab_simulacion, metricas_label, colas_tree, fig, ax, canvas)
     
     return tab_simulacion, ctrl

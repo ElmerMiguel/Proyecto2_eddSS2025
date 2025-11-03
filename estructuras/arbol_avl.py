@@ -141,7 +141,7 @@ class ArbolAVL:
             self._recopilar_libros(nodo.der, libros)
             
     def exportar_dot(self, archivo_dot: str) -> None:
-        """Genera un archivo DOT para visualizar el arbol AVL"""
+        
         with open(archivo_dot, 'w') as f:
             f.write('digraph ArbolAVL {\n')
             f.write('    node [shape=circle, style=filled, fillcolor=lightblue];\n')
@@ -155,7 +155,7 @@ class ArbolAVL:
             f.write('}\n')
 
     def _escribir_nodo_dot(self, f, nodo: NodoAVL) -> None:
-        """Escribe un nodo y sus conexiones en formato DOT"""
+        
         if not nodo:
             return
             

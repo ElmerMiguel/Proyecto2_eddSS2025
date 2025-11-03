@@ -16,12 +16,10 @@ class PruebasTab:
         self.red_bibliotecas = red_bibliotecas
         self.on_datos_actualizados = on_datos_actualizados
         
-        # Variables para entrada manual
         self.busqueda_titulo_var = tk.StringVar()
         self.busqueda_isbn_var = tk.StringVar()
         self.ordenamiento_campo_var = tk.StringVar(value="titulo")
         
-        # Resultados de pruebas
         self.resultados_text = None
     
     def _notificar_actualizacion(self):
@@ -29,7 +27,6 @@ class PruebasTab:
             self.on_datos_actualizados()
     
     def comparar_busquedas_interactivo(self):
-        """Comparar métodos de búsqueda con entrada manual"""
         titulo_buscar = self.busqueda_titulo_var.get().strip()
         isbn_buscar = self.busqueda_isbn_var.get().strip()
         
@@ -42,7 +39,6 @@ class PruebasTab:
                 messagebox.showwarning("Advertencia", "No hay bibliotecas cargadas")
                 return
             
-            # FIX: Buscar en TODAS las bibliotecas hasta encontrar
             biblioteca_con_libro = None
             for bib in self.red_bibliotecas.bibliotecas.values():
                 if titulo_buscar and bib.catalogo_local.lista_secuencial.buscar_por_titulo(titulo_buscar):
@@ -64,12 +60,10 @@ class PruebasTab:
             if titulo_buscar:
                 resultados.append(f"\n🔍 Búsqueda por título: '{titulo_buscar}'")
                 
-                # Búsqueda Secuencial
                 inicio = time.perf_counter()
                 resultado_sec = biblioteca_con_libro.catalogo_local.lista_secuencial.buscar_por_titulo(titulo_buscar)
                 tiempo_sec = time.perf_counter() - inicio
                 
-                # Búsqueda AVL
                 inicio = time.perf_counter()
                 resultado_avl = biblioteca_con_libro.catalogo_local.arbol_titulos.buscar(titulo_buscar)
                 tiempo_avl = time.perf_counter() - inicio
@@ -81,12 +75,10 @@ class PruebasTab:
             if isbn_buscar:
                 resultados.append(f"\n🔍 Búsqueda por ISBN: '{isbn_buscar}'")
                 
-                # Búsqueda Hash
                 inicio = time.perf_counter()
                 resultado_hash = biblioteca_con_libro.catalogo_local.tabla_isbn.buscar(isbn_buscar)
                 tiempo_hash = time.perf_counter() - inicio
                 
-                # Búsqueda Secuencial (para comparar)
                 inicio = time.perf_counter()
                 resultado_sec = biblioteca_con_libro.catalogo_local.lista_secuencial.buscar_por_isbn(isbn_buscar)
                 tiempo_sec = time.perf_counter() - inicio
@@ -95,7 +87,6 @@ class PruebasTab:
                 resultados.append(f"  Secuencial: {tiempo_sec:.8f}s - {'✅ Encontrado' if resultado_sec else '❌ No encontrado'}")
                 resultados.append(f"  Más rápido: {'Hash' if tiempo_hash < tiempo_sec else 'Secuencial'}")
             
-            # Mostrar en widget de texto
             if self.resultados_text:
                 self.resultados_text.delete(1.0, tk.END)
                 self.resultados_text.insert(1.0, "\n".join(resultados))
@@ -104,7 +95,6 @@ class PruebasTab:
             messagebox.showerror("Error", f"Error en comparación: {e}")
     
     def comparar_ordenamientos_interactivo(self):
-        """Comparar métodos de ordenamiento con campo personalizable"""
         campo = self.ordenamiento_campo_var.get()
         
         try:
@@ -112,7 +102,6 @@ class PruebasTab:
                 messagebox.showwarning("Advertencia", "No hay bibliotecas cargadas")
                 return
             
-            # FIX: Recopilar libros de TODAS las bibliotecas, no solo la primera
             todos_los_libros = []
             for biblioteca in self.red_bibliotecas.bibliotecas.values():
                 libros_bib = biblioteca.catalogo_local.lista_secuencial.mostrar_todos()
@@ -124,7 +113,6 @@ class PruebasTab:
             
             resultado = comparar_metodos(todos_los_libros, campo)
             
-            # Mostrar en widget de texto con formato mejorado
             resultados = []
             resultados.append("=" * 60)
             resultados.append("📊 COMPARACIÓN DE ALGORITMOS DE ORDENAMIENTO")
@@ -141,9 +129,7 @@ class PruebasTab:
         except Exception as e:
             messagebox.showerror("Error", f"Error en comparación: {e}")
     
-    # ... métodos de carga CSV existentes sin cambios ...
     def cargar_csv_bibliotecas(self):
-        """Cargar bibliotecas desde CSV"""
         file_path = filedialog.askopenfilename(
             defaultextension=".csv", 
             filetypes=[("CSV files", "*.csv")]
@@ -157,7 +143,6 @@ class PruebasTab:
                 messagebox.showerror("Error", f"Error cargando bibliotecas: {e}")
     
     def cargar_csv_conexiones(self):
-        """Cargar conexiones desde CSV"""
         file_path = filedialog.askopenfilename(
             defaultextension=".csv", 
             filetypes=[("CSV files", "*.csv")]
@@ -171,7 +156,6 @@ class PruebasTab:
                 messagebox.showerror("Error", f"Error cargando conexiones: {e}")
     
     def cargar_csv_libros(self):
-        """Cargar libros desde CSV"""
         file_path = filedialog.askopenfilename(
             defaultextension=".csv", 
             filetypes=[("CSV files", "*.csv")]
@@ -186,12 +170,10 @@ class PruebasTab:
 
 
 def crear_pruebas_carga_tab(notebook, red_bibliotecas, on_datos_actualizados: Optional[Callable[[], None]] = None):
-    """Crear y retornar la pestaña de Pruebas de Carga MEJORADA"""
     
     tab_pruebas_carga = ttk.Frame(notebook, style='Sky.TFrame')
     notebook.add(tab_pruebas_carga, text="⚙️ Pruebas de Rendimiento y Carga (CSV)")
     
-    # Grid principal: 2x2
     tab_pruebas_carga.grid_columnconfigure((0, 1), weight=1)
     tab_pruebas_carga.grid_rowconfigure((0, 1), weight=1)
     
@@ -250,7 +232,6 @@ def crear_pruebas_carga_tab(notebook, red_bibliotecas, on_datos_actualizados: Op
     tk.Label(result_frame, text="📋 RESULTADOS DE PRUEBAS", 
              font=FONT_TITLE_SMALL, fg=TITLE_COLOR, bg=FILTER_BG).pack(pady=(0, 5))
     
-    # Widget de texto con scrollbar
     text_frame = ttk.Frame(result_frame)
     text_frame.pack(fill='both', expand=True)
     

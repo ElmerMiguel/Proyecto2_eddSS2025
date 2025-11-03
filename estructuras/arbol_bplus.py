@@ -29,19 +29,15 @@ class ArbolBPlus:
 
     def _insertar_interno(self, nodo: NodoBPlus, libro: Libro, genero: str):
         if nodo.hoja:
-            # Verificar si el género ya existe
             for i, clave in enumerate(nodo.claves):
                 if clave == genero:
-                    # Evitar duplicados exactos (ISBN)
                     if not any(l.isbn == libro.isbn for l in nodo.valores[i]):
                         nodo.valores[i].append(libro)
                     return
 
-            # Si el género no existe, insertarlo
             nodo.claves.append(genero)
             nodo.valores.append([libro])
 
-            # Ordenar por clave
             for i in range(len(nodo.claves) - 1, 0, -1):
                 if nodo.claves[i] < nodo.claves[i - 1]:
                     nodo.claves[i], nodo.claves[i - 1] = nodo.claves[i - 1], nodo.claves[i]
@@ -52,7 +48,6 @@ class ArbolBPlus:
                 i += 1
             self._insertar_interno(nodo.hijos[i], libro, genero)
 
-            # Dividir si está lleno
             if len(nodo.hijos[i].claves) >= 2 * self.t:
                 self._dividir_nodo(nodo, i, nodo.hijos[i])
 
@@ -205,8 +200,6 @@ class ArbolBPlus:
 
             out.write("}\n")
 
-        print(f"Archivo DOT generado: {archivo}")
-
     def _exportar_dot_rec(self, nodo: NodoBPlus, out, id_counter):
         if not nodo:
             return
@@ -230,22 +223,24 @@ class ArbolBPlus:
                 child_id = id_counter[0]
                 self._exportar_dot_rec(hijo, out, id_counter)
                 out.write(f"\"n{nodo_id}\":f{i} -> \"n{child_id}\";\n")
-        # -------------------------------------------------
+        
+        if nodo.hoja and nodo.siguiente:
+            out.write(f"n{nodo_id} -> n{id(nodo.siguiente)} [style=dashed, weight=1000];\n")
+
+    # -------------------------------------------------
     # Obtener géneros únicos (para GUI)
     # -------------------------------------------------
     def obtener_generos(self) -> List[str]:
-        """Retorna lista de géneros únicos ordenados alfabéticamente."""
+        
         if not self.raiz:
             return []
         
         generos = set()
         actual = self.raiz
         
-        # Ir a la primera hoja
         while not actual.hoja:
             actual = actual.hijos[0]
         
-        # Recorrer todas las hojas
         while actual:
             generos.update(actual.claves)
             actual = actual.siguiente
