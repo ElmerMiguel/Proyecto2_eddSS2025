@@ -66,10 +66,6 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Perfecto, aquí tienes el contenido en tercera persona y con tono formal, listo para integrarse en un README académico:
-
----
-
 ### Compilación
 
 La compilación del proyecto permite generar un ejecutable autónomo a partir del código fuente en Python, lo cual facilita su distribución sin requerir una instalación previa del intérprete. Para este propósito se utiliza PyInstaller, herramienta multiplataforma compatible con sistemas operativos Windows y Linux.
@@ -149,6 +145,68 @@ Para eliminar los archivos temporales generados durante la compilación:
 ```bash
 rm -rf build/ dist/ __pycache__ main.spec
 ```
+
+
+
+## ⚠️ Solucion a posibles problemas:
+
+### ✅ Solución recomendada: usar archivo `.spec` personalizado
+
+1. **Generar archivo** `.spec` **base**:
+
+bash
+
+```
+pyinstaller --name Proyecto2_eddSS2025 --onefile --noconsole main.py
+```
+
+Esto crea un archivo `Proyecto2_eddSS2025.spec` en el directorio actual.
+
+2. **Editar el archivo** `.spec` para incluir `networkx` explícitamente:
+
+Abre `Proyecto2_eddSS2025.spec` y localiza la sección `Analysis(...)`. Modifica así:
+
+python
+
+```
+a = Analysis(    ['main.py'],    ...    hiddenimports=['networkx'],    ...
+)
+```
+
+También puedes agregar otras librerías si el proyecto las usa y no se detectan automáticamente (por ejemplo: `matplotlib`, `pandas`, etc.).
+
+3. **Compilar usando el archivo** `.spec`:
+
+bash
+
+```
+pyinstaller Proyecto2_eddSS2025.spec
+```
+
+4. **Verificar y ejecutar**:
+
+bash
+
+```
+chmod +x dist/Proyecto2_eddSS2025
+./dist/Proyecto2_eddSS2025
+```
+
+### 🧪 Validación adicional
+
+- Asegurarse de que `networkx` esté instalado en el entorno virtual:
+
+bash
+
+```
+source venv/bin/activate
+pip show networkx
+```
+
+- Si el proyecto usa submódulos o carpetas como `gui/`, verificar que estén correctamente importadas y accesibles desde `main.py`.
+
+
+
 ----
 
 ### **Datos de Ejemplo:**
