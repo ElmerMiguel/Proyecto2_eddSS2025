@@ -338,13 +338,17 @@ class Biblioteca:
         print("=" * 80)
 
     def exportar_colas_dot(self, directorio: str = "graficas") -> None:
-        """Exporta las 3 colas a archivos DOT."""
         import os
         os.makedirs(directorio, exist_ok=True)
         
         self.cola_ingreso.exportar_dot(f"{directorio}/{self.id}_cola_ingreso.dot")
         self.cola_traspaso.exportar_dot(f"{directorio}/{self.id}_cola_traspaso.dot")
         self.cola_salida.exportar_dot(f"{directorio}/{self.id}_cola_salida.dot")
+        
+    def exportar_pila_dot(self, directorio: str = "graficas") -> None:
+        import os
+        os.makedirs(directorio, exist_ok=True)
+        self.pila_rollback.exportar_dot(f"{directorio}/{self.id}_pila_rollback.dot")
 
     def __str__(self) -> str:
         return f"Biblioteca({self.id}, {self.nombre}, {self.ubicacion})"

@@ -346,6 +346,60 @@ class Grafo:
         print(f"Tiempo promedio de traslado:      {stats['tiempo_promedio']:.2f} segundos")
         print(f"Costo promedio de traslado:       {stats['costo_promedio']:.2f} unidades")
         print("=" * 60)
+        
+        
+    
+    
+    def exportar_dot_con_ruta(self, archivo: str, ruta: List[str] = None, color_ruta: str = "#ff4444"):
+        """
+        Exporta el grafo resaltando una ruta específica.
+        
+        Args:
+            archivo: Archivo DOT de salida
+            ruta: Lista de nodos que forman la ruta a resaltar
+            color_ruta: Color para resaltar la ruta (por defecto rojo)
+        """
+        with open(archivo, "w", encoding="utf-8") as out:
+            out.write("digraph RedBibliotecas {\n    rankdir=LR;\n")
+            out.write("    node [shape=ellipse, style=filled, fillcolor=\"#cfe2ff\"];\n")
+            out.write("    edge [color=\"#4a90e2\", fontcolor=\"#1f3d7a\", fontsize=10];\n\n")
+            
+            # Nodos - resaltar los de la ruta
+            for nodo in self.nodos:
+                etiqueta = self.etiquetas.get(nodo, nodo)
+                if ruta and nodo in ruta:
+                    # Nodo en la ruta - color destacado
+                    out.write(f'    "{nodo}" [label="{etiqueta}\\n({nodo})", fillcolor="#ffeb3b", penwidth=3];\n')
+                else:
+                    # Nodo normal
+                    out.write(f'    "{nodo}" [label="{etiqueta}\\n({nodo})"];\n')
+            
+            out.write("\n")
+            
+            # Aristas - resaltar las de la ruta
+            aristas_ruta = set()
+            if ruta and len(ruta) > 1:
+                for i in range(len(ruta) - 1):
+                    aristas_ruta.add((ruta[i], ruta[i + 1]))
+            
+            for origen, aristas in self.nodos.items():
+                for arista in aristas:
+                    if (origen, arista.destino) in aristas_ruta:
+                        # Arista en la ruta - color y grosor destacado
+                        out.write(
+                            f'    "{origen}" -> "{arista.destino}" '
+                            f'[label="t={arista.tiempo}s\\nc={arista.costo:.2f}", '
+                            f'color="{color_ruta}", penwidth=4, fontcolor="{color_ruta}"];\n'
+                        )
+                    else:
+                        # Arista normal
+                        out.write(
+                            f'    "{origen}" -> "{arista.destino}" '
+                            f'[label="t={arista.tiempo}s\\nc={arista.costo:.2f}"];\n'
+                        )
+            
+            out.write("}\n")
+    
 
     def exportar_dot(self, archivo: str):
         """

@@ -19,6 +19,7 @@ ESTRUCTURAS_DISPONIBLES = [
     ("Tabla Hash", "hash"),
     ("Grafo de la Red", "grafo"),
     ("Colas de Biblioteca (DOT)", "colas"),
+    ("Pilas de Rollback (DOT)", "pilas"),
 ]
 
 class VisualizacionTab:
@@ -100,19 +101,34 @@ class VisualizacionTab:
             if estructura == "grafo":
                 if not self.red_bibliotecas.grafo:
                     raise ValueError("El grafo no está inicializado")
-                self.red_bibliotecas.grafo.exportar_dot(archivo_dot)
+                
+                # VERIFICAR SI HAY RUTA CALCULADA RECIENTE
+                ruta_actual = getattr(self.red_bibliotecas, 'ultima_ruta_calculada', None)
+                
+                if ruta_actual:
+                    # Exportar con ruta resaltada
+                    self.red_bibliotecas.grafo.exportar_dot_con_ruta(archivo_dot, ruta_actual)
+                else:
+                    # Exportar normal
+                    self.red_bibliotecas.grafo.exportar_dot(archivo_dot)
+                    
             elif estructura == "colas":
                 if not self.red_bibliotecas.bibliotecas:
                     raise ValueError("No hay bibliotecas cargadas")
                 biblioteca = next(iter(self.red_bibliotecas.bibliotecas.values()))
                 biblioteca.exportar_colas_dot(self._temp_dir)
                 archivo_dot = os.path.join(self._temp_dir, f"{biblioteca.id}_cola_ingreso.dot")
+            elif estructura == "pilas":
+                biblioteca = self._obtener_biblioteca_referencia()
+                if biblioteca:
+                    biblioteca.exportar_pila_dot(self._temp_dir)
+                    return os.path.join(self._temp_dir, f"{biblioteca.id}_pila_rollback.dot")
             else:
                 biblioteca = self._obtener_biblioteca_referencia()
                 biblioteca.catalogo_local.exportar_estructura_dot(estructura, archivo_dot)
         except Exception as error:
             raise RuntimeError(f"No se pudo generar DOT: {error}") from error
-
+        
         return archivo_dot
 
     def _dot_a_png(self, ruta_dot: str) -> str:

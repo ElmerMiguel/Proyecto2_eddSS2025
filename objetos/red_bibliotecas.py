@@ -372,6 +372,19 @@ class RedBibliotecas:
     # -------------------------------------------------
     # Consultas y reportes
     # -------------------------------------------------
+    
+    def calcular_ruta_optima(self, origen: str, destino: str, criterio: str = "tiempo"):
+        if criterio == "tiempo":
+            distancia, ruta = self.grafo.dijkstra_tiempo(origen, destino)
+        else:
+            distancia, ruta = self.grafo.dijkstra_costo(origen, destino)
+        
+        self.ultima_ruta_calculada = ruta if ruta else None
+        
+        return ruta, distancia
+        
+    
+    
     def obtener_estado_biblioteca(self, id_biblioteca: str) -> Optional[dict]:
         if id_biblioteca not in self.bibliotecas:
             return None
