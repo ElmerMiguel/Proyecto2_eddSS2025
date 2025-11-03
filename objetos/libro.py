@@ -22,7 +22,6 @@ class Libro:
         self.prioridad = prioridad
 
     def _validar_isbn(self, isbn: str) -> bool:
-        """Valida que el ISBN tenga exactamente 13 dígitos numéricos"""
         isbn_limpio = "".join(ch for ch in isbn if ch.isdigit())
         if len(isbn_limpio) != 13:
             return False
@@ -30,7 +29,6 @@ class Libro:
     
     
     def copy(self):
-        """Crea una copia profunda del libro"""
         return Libro(
             titulo=self.titulo,
             isbn=self.isbn,
