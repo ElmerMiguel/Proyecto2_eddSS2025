@@ -18,7 +18,7 @@
 
 ## **5. 🎯 DIAGRAMA DE CASOS DE USO**
 
-![](assets/diag_4.png)
+![](assets/diag_5.png)
 
 ## **🎯 ESTOS DIAGRAMAS SON PARA:**
 
