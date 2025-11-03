@@ -27,6 +27,22 @@ class Libro:
         if len(isbn_limpio) != 13:
             return False
         return isbn_limpio.isdigit()
+    
+    
+    def copy(self):
+        """Crea una copia profunda del libro"""
+        return Libro(
+            titulo=self.titulo,
+            isbn=self.isbn,
+            genero=self.genero,
+            anio=self.anio,
+            autor=self.autor,
+            estado=self.estado,
+            biblioteca_origen=self.biblioteca_origen,
+            biblioteca_destino=self.biblioteca_destino,
+            prioridad=self.prioridad
+        )
+    
 
     def cambiar_estado(self, nuevo_estado: str):
         estados_validos = ["disponible", "en_transito", "prestado", "agotado"]

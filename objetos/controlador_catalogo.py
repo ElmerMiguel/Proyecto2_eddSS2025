@@ -47,7 +47,7 @@ class ControladorCatalogo:
             "b": self.arbol_fechas,
             "bplus": self.arbol_generos,
             "hash": self.tabla_isbn,
-            "lista": self.lista_secuencial, # Opcional, pero util para mostrar
+            "lista": self.lista_secuencial,
         }
         return mapa.get(clave.lower())
 
@@ -61,7 +61,6 @@ class ControladorCatalogo:
     # -----------------------
     # Operaciones CRUD
     # -----------------------
-   
    
     def agregar_libro(self, libro: Libro, nombre_coleccion: str = "General") -> None:
         """Agrega un libro a todas las estructuras de datos"""
@@ -79,44 +78,97 @@ class ControladorCatalogo:
                 print(f"Error: ISBN {libro.isbn} ya existe en colección '{col_nombre}'")
                 return
 
-        # Crear colección si no existe
         if nombre_coleccion not in self.colecciones:
             self.colecciones[nombre_coleccion] = Coleccion(nombre_coleccion)
             print(f"Nueva colección creada: {nombre_coleccion}")
 
-        # Agregar a colección
         self.colecciones[nombre_coleccion].libros.insertar(libro)
         self.colecciones[nombre_coleccion].isbns_en_coleccion.add(libro.isbn)
 
-        # ✅ INSERTAR EN TODAS LAS ESTRUCTURAS GLOBALES
         self.lista_secuencial.insertar(libro)
         self.arbol_titulos.insertar(libro)
         self.arbol_fechas.insertar(libro)
-        # FIX: REVERTIR - TablaHash solo necesita el libro
-        self.tabla_isbn.insertar(libro)  # ✅ CORRECTO: solo libro
+        self.tabla_isbn.insertar(libro)
         self.arbol_generos.insertar(libro)
         
-        # Guardar en pila de operaciones
         self.pila_operaciones.push(("agregar", libro))
 
         print(f"Libro agregado a colección '{nombre_coleccion}': {libro.titulo}")
    
-   
-   
+    
+    
+    
+    def actualizar_libro(self, isbn: str, nuevos_datos: dict, registrar_rollback: bool = True) -> Libro:
+        """
+        Actualiza un libro manteniendo SINCRONIZACIÓN en todas las estructuras.
+        
+        Returns:
+            Libro actualizado si éxito, None si falla
+        """
+        # Buscar libro actual
+        libro_actual = self.tabla_isbn.buscar(isbn)
+        if not libro_actual:
+            return None 
+        
+        if registrar_rollback:
+            libro_original = Libro(
+                titulo=libro_actual.titulo,
+                isbn=libro_actual.isbn,
+                genero=libro_actual.genero,
+                anio=libro_actual.anio,
+                autor=libro_actual.autor,
+                estado=libro_actual.estado,
+                biblioteca_origen=libro_actual.biblioteca_origen,
+                biblioteca_destino=libro_actual.biblioteca_destino,
+                prioridad=libro_actual.prioridad
+            )
+            self.pila_operaciones.push(("actualizar", libro_original, libro_actual))
+        
+        titulo_anterior = libro_actual.titulo
+        genero_anterior = libro_actual.genero
+        anio_anterior = libro_actual.anio
+        
+        for campo, valor in nuevos_datos.items():
+            if hasattr(libro_actual, campo):
+                setattr(libro_actual, campo, valor)
+        
+
+        if 'titulo' in nuevos_datos and nuevos_datos['titulo'] != titulo_anterior:
+            self.arbol_titulos.eliminar(titulo_anterior)
+            self.arbol_titulos.insertar(libro_actual)
+        
+        if 'genero' in nuevos_datos and nuevos_datos['genero'] != genero_anterior:
+            try:
+                self.arbol_generos.eliminar(genero_anterior, isbn)
+            except:
+                pass
+            self.arbol_generos.insertar(libro_actual)
+        
+        if 'anio' in nuevos_datos and nuevos_datos['anio'] != anio_anterior:
+            try:
+                self.arbol_fechas.eliminar(anio_anterior, isbn)
+            except:
+                pass
+            self.arbol_fechas.insertar(libro_actual)
+        
+        return libro_actual 
+        
+        
+    
+    
+
     def eliminar_libro(self, isbn: str) -> None:
         libro = self.tabla_isbn.buscar(isbn)
         if not libro:
             print(f"Libro con ISBN {isbn} no encontrado.")
             return
 
-        # Guardar en pila ANTES de eliminar
         self.pila_operaciones.push(("eliminar", libro))
 
         titulo = libro.titulo
         genero = libro.genero
         anio = libro.anio
         
-        # Eliminar de colecciones 
         for col in self.colecciones.values():
             if isbn in col.isbns_en_coleccion:
                 col.libros.eliminar(isbn) 
@@ -175,24 +227,23 @@ class ControladorCatalogo:
     # Operaciones con Pilas
     # -----------------------
     def deshacer_ultima_operacion(self) -> bool:
-        """Deshace la última operación (agregar/eliminar)."""
+        """Deshace la última operación (agregar/eliminar/actualizar)."""
         if self.pila_operaciones.esta_vacia():
             print("No hay operaciones para deshacer.")
             return False
         
-        operacion, libro = self.pila_operaciones.pop()
+        operacion_tuple = self.pila_operaciones.pop()
+        operacion = operacion_tuple[0]
         
         if operacion == "agregar":
-            # Deshacer agregar = eliminar (sin guardar en pila)
+            libro = operacion_tuple[1]
             print(f"Deshaciendo agregado de: {libro.titulo}")
             
-            # Eliminar de colecciones
             for col in self.colecciones.values():
                 if libro.isbn in col.isbns_en_coleccion:
                     col.libros.eliminar(libro.isbn)
                     col.isbns_en_coleccion.discard(libro.isbn)
             
-            # Eliminar de estructuras globales
             self.lista_secuencial.eliminar(libro.isbn)
             self.arbol_titulos.eliminar(libro.titulo)
             self.tabla_isbn.eliminar(libro.isbn)
@@ -206,14 +257,34 @@ class ControladorCatalogo:
                 self.arbol_generos.eliminar(libro.genero)
         
         elif operacion == "eliminar":
-            # Deshacer eliminar = agregar
+            libro = operacion_tuple[1]
             print(f"Deshaciendo eliminación de: {libro.titulo}")
-            # Quitar el push automático temporalmente
+            
             temp_push = self.pila_operaciones.push
             self.pila_operaciones.push = lambda x: None
-            self.agregar_libro(libro, "General") # Asume que el libro original fue a General
+            self.agregar_libro(libro, "General") 
             self.pila_operaciones.push = temp_push
-        
+
+        elif operacion == "actualizar":
+            libro_original = operacion_tuple[1]
+            libro_actual = operacion_tuple[2]
+            print(f"Deshaciendo actualización de: {libro_original.titulo}")
+
+            # Restaurar el estado del objeto Libro (por referencia)
+            datos_restauracion = {
+                "titulo": libro_original.titulo,
+                "autor": libro_original.autor,
+                "genero": libro_original.genero,
+                "anio": libro_original.anio,
+                "estado": libro_original.estado,
+                "biblioteca_origen": libro_original.biblioteca_origen,
+                "biblioteca_destino": libro_original.biblioteca_destino,
+                "prioridad": libro_original.prioridad
+            }
+            
+            # Usar actualizar_libro sin registrar rollback para restaurar
+            self.actualizar_libro(libro_original.isbn, datos_restauracion, registrar_rollback=False)
+            
         return True
 
     def apilar_devolucion(self, libro: Libro) -> None:
@@ -232,11 +303,11 @@ class ControladorCatalogo:
         return libros
 
     # -----------------------
-    # Importación CSV (MODIFICADO para 9 campos)
+    # Importación CSV
     # -----------------------
     def cargar_desde_csv(self, ruta_archivo: str, nombre_coleccion: str = "General", red_bibliotecas=None) -> int:
         """
-        Carga libros desde CSV con 9 campos según enunciado.
+        Carga libros desde CSV con 9 campos.
         """
         ruta = Path(ruta_archivo)
         if not ruta.exists():
@@ -249,19 +320,16 @@ class ControladorCatalogo:
             with open(ruta_archivo, "r", encoding="utf-8") as archivo:
                 reader = csv.reader(archivo)
                 try:
-                    encabezado = next(reader)  # ✅ SALTAR ENCABEZADO
-                    # print(f"Encabezado libros: {encabezado}") # Se comenta para evitar comentarios
+                    next(reader) 
                 except StopIteration:
                     print("Archivo vacío o sin encabezado.")
                     return 0
                 
                 for fila in reader:
                     if not fila or len(fila) < 9:
-                        # print(f"Fila incompleta ignorada: {fila}") # Se comenta para evitar comentarios
                         continue
                         
                     try:
-                        # ✅ USAR ÍNDICES DIRECTOS
                         titulo = fila[0].strip().strip('"')
                         isbn = fila[1].strip().strip('"')
                         genero = fila[2].strip().strip('"')
@@ -272,12 +340,9 @@ class ControladorCatalogo:
                         id_destino = fila[7].strip().strip('"')
                         prioridad = fila[8].strip().strip('"')
                         
-                        # Validar campos obligatorios
                         if not all([titulo, isbn, genero, autor]):
-                            # print(f"Campos obligatorios faltantes: {fila}") # Se comenta para evitar comentarios
                             continue
                         
-                        # Crear libro
                         libro = Libro(
                             titulo=titulo,
                             isbn=isbn,
@@ -290,28 +355,20 @@ class ControladorCatalogo:
                             prioridad=prioridad
                         )
                         
-                        # ✅ DISTRIBUCIÓN CORRECTA POR BIBLIOTECA
                         if red_bibliotecas and id_origen in red_bibliotecas.bibliotecas:
-                            # Agregar a la biblioteca correcta
                             red_bibliotecas.bibliotecas[id_origen].catalogo_local.agregar_libro(libro, nombre_coleccion)
-                            # print(f"✅ Libro '{titulo}' agregado a biblioteca {id_origen}") # Se comenta para evitar comentarios
                             
-                            # ✅ SI HAY DESTINO DIFERENTE, PROGRAMAR TRANSFERENCIA
                             if id_destino and id_destino != id_origen and id_destino in red_bibliotecas.bibliotecas:
                                 red_bibliotecas.programar_transferencia(libro.isbn, id_origen, id_destino, prioridad)
-                                # print(f"📦 Transferencia programada: {titulo} de {id_origen} a {id_destino}") # Se comenta para evitar comentarios
                         else:
-                            # Agregar al catálogo actual (primera biblioteca)
                             self.agregar_libro(libro, nombre_coleccion)
-                            # print(f"✅ Libro '{titulo}' agregado a catálogo actual") # Se comenta para evitar comentarios
                         
                         contador += 1
                         
-                    except Exception: # Se elimina la impresión de la excepción para evitar comentarios
-                        # print(f"❌ Error procesando fila {fila}: {e}") # Se comenta para evitar comentarios
+                    except Exception: 
                         continue
 
-            print(f"\n✅ Carga completada: {contador} libros importados")
+            print(f"\nCarga completada: {contador} libros importados")
             return contador
             
         except Exception as e:
@@ -341,13 +398,12 @@ class ControladorCatalogo:
         Path("graficos_arboles").mkdir(parents=True, exist_ok=True)
         print("Exportando todos los arboles a DOT y PNG/SVG...")
         print("=============================================")
-        # Uso de la nueva función unificada
+
         self.exportar_estructura_dot("avl", "graficos_arboles/arbol_avl_titulos.dot")
         self.exportar_estructura_dot("b", "graficos_arboles/arbol_b_fechas.dot")
         self.exportar_estructura_dot("hash", "graficos_arboles/tabla_hash_isbn.dot")
         self.exportar_estructura_dot("bplus", "graficos_arboles/arbol_bplus_generos.dot")
         
-        # Generación de gráficas (separado del DOT)
         self._generar_grafica_desde_dot("graficos_arboles/arbol_avl_titulos")
         self._generar_grafica_desde_dot("graficos_arboles/arbol_b_fechas")
         self._generar_grafica_desde_dot("graficos_arboles/tabla_hash_isbn")
@@ -368,7 +424,6 @@ class ControladorCatalogo:
             print(f"(X) Archivo DOT no encontrado: {dot_file}")
             return
 
-        # Generar PNG
         try:
             subprocess.run(["dot", "-Tpng", str(dot_file), "-o", str(png_file)],
                         check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -379,7 +434,6 @@ class ControladorCatalogo:
         except Exception:
             print(f"(X) Error generando PNG para: {archivo_base}")
 
-        # Generar SVG
         try:
             subprocess.run(["dot", "-Tsvg", str(dot_file), "-o", str(svg_file)],
                         check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

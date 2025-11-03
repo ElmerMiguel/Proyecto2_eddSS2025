@@ -71,6 +71,47 @@ class Biblioteca:
         if contar_ingreso:
             self.estadisticas["libros_ingresados"] += 1
 
+    def actualizar_libro(self, isbn: str, nuevos_datos: dict, registrar_rollback: bool = True) -> bool:
+        """
+        Actualiza un libro manteniendo coherencia en TODAS las estructuras:
+        - AVL (índice principal por ISBN)
+        - Hash (índices por título, autor, género)
+        - Inventario (si cambia género)
+        - Rollback (guardar estado anterior)
+        """
+        libro_original = self.obtener_libro_por_isbn(isbn)
+        if not libro_original:
+            return False
+
+        # Copia profunda del libro original para el rollback
+        libro_anterior = libro_original.copy()
+        genero_anterior = libro_original.genero
+
+        # Actualiza el libro en el ControladorCatalogo
+        libro_modificado = self.catalogo_local.actualizar_libro(isbn, nuevos_datos)
+
+        if libro_modificado:
+            genero_nuevo = libro_modificado.genero
+            
+            # Ajustar inventario si el género ha cambiado
+            if genero_anterior != genero_nuevo:
+                # Decrementar el inventario del género anterior
+                self._actualizar_inventario(Libro(isbn=isbn, genero=genero_anterior, titulo="", autor=""), -1)
+                # Incrementar el inventario del nuevo género
+                self._actualizar_inventario(libro_modificado, 1)
+
+            if registrar_rollback:
+                operacion = {
+                    "tipo": "actualizar", 
+                    "libro_anterior": libro_anterior,
+                    "libro_nuevo": libro_modificado
+                }
+                self.pila_rollback.apilar(operacion)
+            
+            print(f"Libro '{isbn}' actualizado en {self.nombre}")
+            return True
+        return False
+
     def agregar_libro_ingreso(self, libro: Libro) -> None:
         """Agrega un libro a la cola de ingreso."""
         libro.cambiar_estado("en_transito")
@@ -170,7 +211,7 @@ class Biblioteca:
         return False
 
     def rollback_ultima_operacion(self) -> Optional[str]:
-        """Deshace la última operación (agregar O eliminar)."""
+        """Deshace la última operación (agregar, eliminar o actualizar)."""
         if self.pila_rollback.esta_vacia():
             return "No hay operaciones para deshacer"
         
@@ -189,6 +230,30 @@ class Biblioteca:
             self.catalogo_local.agregar_libro(libro)
             self._actualizar_inventario(libro, 1)
             return f"Se deshizo la eliminación de '{libro.titulo}'"
+
+        elif operacion["tipo"] == "actualizar":
+            # Deshacer actualización = restaurar el libro anterior
+            libro_anterior = operacion["libro_anterior"]
+            libro_modificado = operacion["libro_nuevo"]
+            
+            # Recalcular inventario si el género cambió durante la actualización
+            if libro_anterior.genero != libro_modificado.genero:
+                self._actualizar_inventario(libro_modificado, -1) # Decrementar el modificado
+                self._actualizar_inventario(libro_anterior, 1)    # Incrementar el anterior
+                
+            # Llamar a actualizar libro, pero sin registrar un nuevo rollback
+            datos_restauracion = {
+                "titulo": libro_anterior.titulo,
+                "autor": libro_anterior.autor,
+                "genero": libro_anterior.genero,
+                "anio": libro_anterior.anio,
+                "biblioteca_origen": libro_anterior.biblioteca_origen,
+                "biblioteca_destino": libro_anterior.biblioteca_destino,
+                "estado": libro_anterior.estado,
+            }
+            # Se usa el método interno del catalogo para forzar la restauración
+            self.catalogo_local.actualizar_libro(libro_anterior.isbn, datos_restauracion)
+            return f"Se deshizo la actualización de '{libro_anterior.titulo}'"
 
     def ordenar_catalogo(self, metodo: str = "quick_sort", clave: str = "titulo") -> None:
         """

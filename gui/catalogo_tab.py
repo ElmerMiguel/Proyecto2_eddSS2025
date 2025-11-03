@@ -176,6 +176,144 @@ class CatalogoTab:
                 
         except Exception as e:
             messagebox.showerror("Error", f"Error al eliminar libro: {e}")
+            
+            
+    
+    
+    def modificar_libro(self):
+        """Modificar libro seleccionado del catálogo"""
+        selected = self.catalog_tree.selection()
+        if not selected:
+            messagebox.showwarning("Advertencia", "Seleccione un libro para modificar")
+            return
+        
+        try:
+            # Obtener datos del libro seleccionado
+            item = self.catalog_tree.item(selected[0])
+            values = item['values']
+            isbn_actual = str(values[2])
+            
+            # Buscar el libro en las bibliotecas
+            libro_encontrado = None
+            biblioteca_actual = None
+            
+            for bib_id, biblioteca in self.red_bibliotecas.bibliotecas.items():
+                libro = biblioteca.obtener_libro_por_isbn(isbn_actual)
+                if libro:
+                    libro_encontrado = libro
+                    biblioteca_actual = biblioteca
+                    break
+            
+            if not libro_encontrado:
+                messagebox.showerror("Error", "No se encontró el libro en ninguna biblioteca")
+                return
+            
+            # Abrir ventana de edición
+            self._abrir_ventana_edicion(libro_encontrado, biblioteca_actual)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error al modificar libro: {e}")
+
+    def _abrir_ventana_edicion(self, libro, biblioteca):
+        """Abrir ventana modal para editar libro"""
+        ventana = tk.Toplevel()
+        ventana.title("✏️ Modificar Libro")
+        ventana.geometry("400x500")
+        ventana.resizable(False, False)
+        ventana.grab_set()  # Modal
+        
+        # Variables temporales para la edición
+        temp_titulo = tk.StringVar(value=libro.titulo)
+        temp_autor = tk.StringVar(value=libro.autor)
+        temp_genero = tk.StringVar(value=libro.genero)
+        temp_anio = tk.StringVar(value=str(libro.anio))
+        temp_estado = tk.StringVar(value=libro.estado)
+        
+        # Título
+        tk.Label(ventana, text="📝 EDITAR DATOS DEL LIBRO", 
+                font=FONT_TITLE_MEDIUM, fg=TITLE_COLOR).pack(pady=15)
+        
+        # Marco para formulario
+        form_frame = ttk.Frame(ventana, padding=20)
+        form_frame.pack(fill='both', expand=True)
+        
+        # ISBN (No editable)
+        tk.Label(form_frame, text="ISBN (No editable):").grid(row=0, column=0, sticky='w', pady=5)
+        isbn_entry = ttk.Entry(form_frame, width=30)
+        isbn_entry.insert(0, libro.isbn)
+        isbn_entry.config(state='readonly')
+        isbn_entry.grid(row=0, column=1, pady=5, sticky='ew')
+        
+        # Campos editables
+        tk.Label(form_frame, text="Título:").grid(row=1, column=0, sticky='w', pady=5)
+        ttk.Entry(form_frame, textvariable=temp_titulo, width=30).grid(row=1, column=1, pady=5, sticky='ew')
+        
+        tk.Label(form_frame, text="Autor:").grid(row=2, column=0, sticky='w', pady=5)
+        ttk.Entry(form_frame, textvariable=temp_autor, width=30).grid(row=2, column=1, pady=5, sticky='ew')
+        
+        tk.Label(form_frame, text="Género:").grid(row=3, column=0, sticky='w', pady=5)
+        ttk.Entry(form_frame, textvariable=temp_genero, width=30).grid(row=3, column=1, pady=5, sticky='ew')
+        
+        tk.Label(form_frame, text="Año:").grid(row=4, column=0, sticky='w', pady=5)
+        ttk.Entry(form_frame, textvariable=temp_anio, width=30).grid(row=4, column=1, pady=5, sticky='ew')
+        
+        tk.Label(form_frame, text="Estado:").grid(row=5, column=0, sticky='w', pady=5)
+        ttk.Combobox(form_frame, textvariable=temp_estado, 
+                    values=["disponible", "prestado", "en_transito", "agotado"],
+                    state="readonly", width=27).grid(row=5, column=1, pady=5, sticky='ew')
+        
+        # Configurar expansión de columnas
+        form_frame.grid_columnconfigure(1, weight=1)
+        
+        # Botones
+        button_frame = ttk.Frame(ventana)
+        button_frame.pack(pady=20)
+        
+        def guardar_cambios():
+            try:
+                # Validaciones
+                if not temp_titulo.get().strip():
+                    messagebox.showerror("Error", "El título no puede estar vacío")
+                    return
+                
+                try:
+                    anio_nuevo = int(temp_anio.get())
+                except ValueError:
+                    messagebox.showerror("Error", "El año debe ser un número válido")
+                    return
+                
+                # Preparar datos actualizados
+                nuevos_datos = {
+                    'titulo': temp_titulo.get().strip(),
+                    'autor': temp_autor.get().strip(),
+                    'genero': temp_genero.get().strip(),
+                    'anio': anio_nuevo,
+                    'estado': temp_estado.get()
+                }
+                
+                # Actualizar el libro
+                if biblioteca.actualizar_libro(libro.isbn, nuevos_datos):
+                    messagebox.showinfo("Éxito", "Libro actualizado correctamente")
+                    ventana.destroy()
+                    self.refrescar_datos()  # Actualizar vista
+                else:
+                    messagebox.showerror("Error", "No se pudo actualizar el libro")
+                    
+            except Exception as e:
+                messagebox.showerror("Error", f"Error al guardar cambios: {e}")
+        
+        def cancelar():
+            ventana.destroy()
+        
+        ttk.Button(button_frame, text="💾 Guardar Cambios", 
+                command=guardar_cambios).pack(side='left', padx=10)
+        ttk.Button(button_frame, text="❌ Cancelar", 
+                command=cancelar).pack(side='left', padx=10)        
+        
+        
+    
+    
+            
     
     def rollback_operacion(self):
         """Deshacer última operación"""
@@ -452,6 +590,10 @@ def crear_catalogo_tab(notebook, red_bibliotecas):
 
     ttk.Button(crud_frame, text="🗑️ Eliminar Libro", 
                command=ctrl.eliminar_libro).grid(row=current_row, column=0, columnspan=2, pady=5, sticky='ew', padx=5)
+    current_row += 1
+    
+    ttk.Button(crud_frame, text="✏️ Modificar Libro", 
+            command=ctrl.modificar_libro).grid(row=current_row, column=0, columnspan=2, pady=5, sticky='ew', padx=5)
     current_row += 1
 
     # CONTROL DE PILAS
